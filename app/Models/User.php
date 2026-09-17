@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -35,5 +36,25 @@ class User extends Authenticatable
     public function getAuthPasswordName(): string
     {
         return 'password_hash';
+    }
+
+    /**
+     * Get the trading accounts belonging to the user.
+     *
+     * @return HasMany<TradingAccount>
+     */
+    public function tradingAccounts(): HasMany
+    {
+        return $this->hasMany(TradingAccount::class);
+    }
+
+    /**
+     * Get the trading notifications for the user.
+     *
+     * @return HasMany<Notification, $this>
+     */
+    public function tradingNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'user_id');
     }
 }
