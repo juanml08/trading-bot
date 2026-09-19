@@ -118,7 +118,7 @@ final class StrategyEvaluator
 
             $equity = $this->equity($cash, $openPosition, $candle->close);
 
-            if (bccomp($equity, $peakEquity, 18) > 0) {
+            if (bccomp($equity, $peakEquity, 18) >= 0) {
                 $peakEquity = $equity;
 
                 continue;

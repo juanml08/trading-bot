@@ -126,6 +126,26 @@ class StrategyEvaluatorTest extends TestCase
         $this->assertSame(bcadd('0', bcmul(bcdiv('100', '100', 18), '110', 18), 18), $evaluation->finalCapital);
     }
 
+    public function test_a_zero_result_trade_does_not_count_as_winning_or_losing(): void
+    {
+        $evaluation = $this->evaluateTrades(['0']);
+
+        $this->assertSame(1, $evaluation->totalTrades);
+        $this->assertSame(0, $evaluation->winningTrades);
+        $this->assertSame(0, $evaluation->losingTrades);
+    }
+
+    public function test_profit_loss_percentage_is_zero_when_initial_capital_is_zero(): void
+    {
+        $evaluation = $this->evaluate(['100', '101', '102'], [
+            SignalType::HOLD,
+            SignalType::HOLD,
+            SignalType::HOLD,
+        ], '0');
+
+        $this->assertSame('0', $evaluation->profitLossPercentage);
+    }
+
     public function test_a_commission_reduces_the_net_result_of_a_winning_operation(): void
     {
         $withoutCommission = $this->evaluate(['100', '150'], [

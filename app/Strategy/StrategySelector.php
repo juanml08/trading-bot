@@ -24,12 +24,12 @@ namespace App\Strategy;
  * strategies, does not touch historical data, brokers, or persistence, and
  * only reads the metrics already computed by {@see StrategyEvaluator}.
  *
- * Profit Factor is listed as a desirable criterion for this block but is
- * not yet exposed by {@see StrategyEvaluation}, so it is intentionally left
- * out of this version. Commissions, slippage, per-period consistency,
- * train/validation splits, out-of-sample testing, different market
- * regimes, statistical confidence, and a more sophisticated selection
- * mechanism are all left for future iterations.
+ * Profit Factor is listed as a desirable criterion for this block. It is
+ * now exposed by {@see StrategyEvaluation}, but is intentionally left out
+ * of the dominance comparison in this version. Commissions, slippage,
+ * per-period consistency, train/validation splits, out-of-sample testing,
+ * different market regimes, statistical confidence, and a more
+ * sophisticated selection mechanism are all left for future iterations.
  */
 final class StrategySelector
 {
