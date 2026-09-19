@@ -12,7 +12,7 @@ use Carbon\CarbonImmutable;
  * Uses only closing prices. Knows nothing about brokers, risk, capital,
  * persistence, or execution.
  */
-final class SimpleMovingAverageStrategy
+final class SimpleMovingAverageStrategy implements Strategy
 {
     private const int SHORT_PERIOD = 5;
 
