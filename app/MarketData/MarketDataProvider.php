@@ -2,6 +2,7 @@
 
 namespace App\MarketData;
 
+use App\Strategy\TrainValidationSplit;
 use Carbon\CarbonImmutable;
 
 /**
@@ -14,6 +15,11 @@ use Carbon\CarbonImmutable;
 interface MarketDataProvider
 {
     /**
+     * Implementations must return candles in chronological ascending order
+     * (oldest first, most recent last). This is a precondition relied upon
+     * by consumers such as {@see TrainValidationSplit}, which
+     * is purely positional and does not sort or inspect timestamps.
+     *
      * @return Candle[]
      */
     public function getHistoricalCandles(
