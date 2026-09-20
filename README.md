@@ -13,3 +13,8 @@ Proyecto personal de aprendizaje y experimentación en torno al trading algorít
 ## Estado actual
 
 El proyecto se encuentra en una etapa temprana de desarrollo y aprendizaje. Todo el trabajo se realiza en modo simulado (paper trading); no se ejecutan ni se ejecutarán operaciones con dinero real hasta que las estrategias hayan sido debidamente probadas y validadas.
+
+## Estructura del repositorio
+
+- `api/` — Backend Laravel: estrategias, market data, riesgo, backtesting y persistencia.
+- `site/` — Frontend Vue (en preparación).
