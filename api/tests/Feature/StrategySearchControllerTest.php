@@ -67,6 +67,20 @@ class StrategySearchControllerTest extends TestCase
         }
     }
 
+    /**
+     * Manual mode ("Buscar estrategia") must keep taking a specific,
+     * user-supplied symbol and must never involve the Opportunity Scanner —
+     * that integration is automatic-mode only.
+     */
+    public function test_it_never_calls_the_opportunity_scanner(): void
+    {
+        $this->fakeBinance();
+
+        $this->postJson('/api/strategies/search', $this->payload())->assertOk();
+
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/api/v3/exchangeInfo'));
+    }
+
     public function test_it_rejects_a_missing_symbol(): void
     {
         Http::fake();

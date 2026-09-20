@@ -30,6 +30,8 @@ class AutomaticModeStatusController extends Controller
             ->latest('opened_at')
             ->first();
 
+        $automaticSearch = $account->automaticSearchState;
+
         return response()->json([
             'activeStrategy' => $active,
             'cycleProfitLoss' => $active === null ? null : $this->cycleProfitLoss($active),
@@ -42,6 +44,14 @@ class AutomaticModeStatusController extends Controller
                 'entryPrice' => $openTrade->entry_price,
                 'capitalUsed' => $openTrade->capital_used,
                 'openedAt' => $openTrade->opened_at,
+            ],
+            'automaticSearch' => $automaticSearch === null ? null : [
+                'status' => $automaticSearch->status,
+                'symbol' => $automaticSearch->symbol,
+                'timeframe' => $automaticSearch->timeframe,
+                'lastSearchedAt' => $automaticSearch->last_searched_at,
+                'nextSearchAt' => $automaticSearch->next_search_at,
+                'lastCycle' => $automaticSearch->last_cycle,
             ],
         ]);
     }

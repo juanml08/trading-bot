@@ -6,7 +6,7 @@ const API_BASE_URL = 'http://127.0.0.1:8000'
 // Refresco periódico del centro de control: estado automático, actividad y
 // operaciones. El bot corre en el scheduler de Laravel (fuera de esta
 // pestaña), así que el panel necesita re-consultar para seguir "vivo".
-const REFRESCO_MS = 15000
+const REFRESCO_MS = 60000
 
 // Parámetros de búsqueda fijos para esta primera versión: el único campo
 // editable por el usuario es `capital` (ver `capitalATrabajar` más abajo).
@@ -37,6 +37,12 @@ const estadoBusqueda = ref('idle')
 const errorBusqueda = ref('')
 const resultado = ref(null)
 
+// Modo de selección de estrategia: Manual (el usuario busca y aplica a
+// mano) o Automático (el bot busca, selecciona y aplica solo, sin
+// confirmación). No confundir con `modo` (Trial/Real), que es el modo de
+// cuenta/capital y aplica a ambos por igual.
+const modoSeleccion = ref('manual')
+
 // Estado del centro de control: todo viene de GET /api/automatic/status, que
 // es la fuente de verdad persistida en Laravel (App\Models\ActiveStrategy +
 // Trade). Nada de esto se calcula ni se reinicia localmente en el frontend.
@@ -46,10 +52,18 @@ const nextReview = ref(null)
 const openPosition = ref(null)
 const eventos = ref([])
 const trades = ref([])
+const automaticoSeleccion = ref(null)
 
 // idle | loading | error
 const estadoAccionAutomatica = ref('idle')
 const errorAccionAutomatica = ref('')
+
+// idle | loading | error
+const estadoAccionAutomaticoSeleccion = ref('idle')
+const errorAccionAutomaticoSeleccion = ref('')
+
+// idle | loading | error
+const estadoReseteoActividad = ref('idle')
 
 // Reloj compartido para los contadores en vivo (próxima revisión, tiempo con
 // la posición abierta): se recalculan solos, nunca se congelan al recargar.
@@ -101,6 +115,34 @@ function formatoPL(valor) {
   return `${signo}${Math.abs(numero).toFixed(2)} USDT`
 }
 
+// Porcentajes ya vienen en escala 0-100 desde el backend (StrategyEvaluator).
+// `conSigno` antepone +/- para métricas que pueden ser negativas (P/L); el
+// resto (win rate, drawdown) no lo necesita porque nunca son negativas.
+function formatoPorcentaje(valor, conSigno = false) {
+  const numero = Number(valor)
+  if (!Number.isFinite(numero)) {
+    return '—'
+  }
+
+  const texto = Math.abs(numero).toFixed(2)
+  if (!conSigno) {
+    return `${texto}%`
+  }
+
+  const signo = numero > 0 ? '+' : numero < 0 ? '−' : ''
+  return `${signo}${texto}%`
+}
+
+// Profit factor es 'INF' (string) cuando no hay operaciones perdedoras.
+function formatoProfitFactor(valor) {
+  if (valor === 'INF') {
+    return '∞'
+  }
+
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? numero.toFixed(2) : '—'
+}
+
 function formatoHora(iso) {
   if (!iso) {
     return '—'
@@ -123,6 +165,34 @@ function formatoFecha(iso) {
 
 function capitalizar(texto) {
   return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : ''
+}
+
+// Traduce el status de un activo del último ciclo (ver
+// RunAutomaticSearchAction::reviewFor) a la etiqueta que ve el usuario.
+// Puramente informativo: no es una señal BUY/SELL ni un juicio de
+// rentabilidad, solo el resultado que ya calculó el Strategy Pipeline.
+function textoEstadoActivo(activo) {
+  if (activo.status === 'candidate_found') {
+    return 'Candidata encontrada'
+  }
+
+  if (activo.status === 'discarded') {
+    return activo.reason ? `Descartada (${activo.reason})` : 'Descartada'
+  }
+
+  return 'Sin oportunidad'
+}
+
+function claseEstadoActivo(status) {
+  if (status === 'candidate_found') {
+    return 'text-emerald-400'
+  }
+
+  if (status === 'discarded') {
+    return 'text-red-400'
+  }
+
+  return 'text-neutral-400'
 }
 
 async function cargarSaldoBinance() {
@@ -184,6 +254,12 @@ async function buscarEstrategia() {
   }
 }
 
+// "Seleccionada" es la que StrategySelector eligió (resultado.selectedCandidate);
+// no debe confundirse con "Validada" (pasó VALIDATION pero no fue la elegida).
+function esSeleccionada(strategyName) {
+  return resultado.value?.selectedCandidate?.strategyName === strategyName
+}
+
 // Validación de UX: Laravel es la autoridad final (ver
 // SearchStrategiesRequest), esto solo evita una llamada innecesaria y da
 // feedback inmediato.
@@ -214,6 +290,14 @@ async function cargarEstadoAutomatico() {
     cycleProfitLoss.value = datos.cycleProfitLoss
     nextReview.value = datos.nextReview
     openPosition.value = datos.openPosition
+    automaticoSeleccion.value = datos.automaticSearch
+
+    // Si el modo automático ya está corriendo en el backend (por ejemplo
+    // tras recargar la página), reflejarlo en la UI sin que el usuario
+    // tenga que volver a tocar el selector.
+    if (datos.automaticSearch?.status === 'running') {
+      modoSeleccion.value = 'automatico'
+    }
   } catch {
     // El estado se reintenta en el próximo refresco; no bloquea el resto de la UI.
   }
@@ -232,6 +316,36 @@ async function cargarEventos() {
     eventos.value = (await response.json()).events
   } catch {
     // idem cargarEstadoAutomatico
+  }
+}
+
+// Solo borra App\Models\BotEvent (el log de Activity); no toca trades,
+// estrategias ni el estado del modo automático — ver ResetActivityAction.
+async function resetearActividad() {
+  if (estadoReseteoActividad.value === 'loading') {
+    return
+  }
+
+  if (!window.confirm('¿Seguro que quieres borrar toda la actividad?')) {
+    return
+  }
+
+  estadoReseteoActividad.value = 'loading'
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/automatic/events`, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+    })
+
+    if (!response.ok) {
+      throw new Error('request-failed')
+    }
+
+    estadoReseteoActividad.value = 'idle'
+    await cargarEventos()
+  } catch {
+    estadoReseteoActividad.value = 'error'
   }
 }
 
@@ -328,6 +442,70 @@ async function ejecutarAccionAutomatica(ruta) {
   }
 }
 
+// "Iniciar automático" en Modo Automático: a diferencia de Manual, esto
+// dispara todo el ciclo Buscar -> Seleccionar -> Aplicar sin pasos
+// intermedios (ver StartAutomaticSearchModeController). No requiere que ya
+// exista una estrategia aplicada.
+async function iniciarAutomaticoSeleccion() {
+  if (!puedeBuscar()) {
+    return
+  }
+
+  estadoAccionAutomaticoSeleccion.value = 'loading'
+  errorAccionAutomaticoSeleccion.value = ''
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/automatic-search/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        ...BUSQUEDA_CONFIG,
+        capital: capitalATrabajar.value,
+        mode: modo.value.toLowerCase(),
+      }),
+    })
+
+    const datos = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      throw new Error(datos?.errors?.capital?.[0] ?? datos?.errors?.mode?.[0] ?? datos?.message ?? 'request-failed')
+    }
+
+    estadoAccionAutomaticoSeleccion.value = 'idle'
+    refrescarCentroDeControl()
+  } catch (error) {
+    estadoAccionAutomaticoSeleccion.value = 'error'
+    errorAccionAutomaticoSeleccion.value = error.message !== 'request-failed' ? error.message : 'No se pudo iniciar el modo automático.'
+  }
+}
+
+async function detenerAutomaticoSeleccion() {
+  estadoAccionAutomaticoSeleccion.value = 'loading'
+  errorAccionAutomaticoSeleccion.value = ''
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/automatic-search/stop`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    })
+
+    const datos = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      throw new Error(datos?.message ?? 'request-failed')
+    }
+
+    estadoAccionAutomaticoSeleccion.value = 'idle'
+    refrescarCentroDeControl()
+  } catch (error) {
+    estadoAccionAutomaticoSeleccion.value = 'error'
+    errorAccionAutomaticoSeleccion.value = error.message !== 'request-failed' ? error.message : 'No se pudo detener el modo automático.'
+  }
+}
+
 onMounted(() => {
   cargarSaldoBinance()
   refrescarCentroDeControl()
@@ -341,7 +519,7 @@ onUnmounted(() => {
 
 <template>
   <main class="min-h-svh bg-neutral-950 text-neutral-100 flex justify-center px-4 py-10">
-    <div class="w-full max-w-4xl grid grid-cols-1 gap-6">
+    <div class="w-full max-w-6xl flex flex-col gap-6">
       <header class="text-center">
         <h1 class="text-2xl font-semibold">Trading Bot</h1>
         <p class="text-sm text-neutral-500 mt-1">Centro de control — Binance Demo</p>
@@ -362,7 +540,30 @@ onUnmounted(() => {
         </div>
       </header>
 
-      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <section class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4">
+        <p class="text-sm text-neutral-500 mb-3 text-center">Selección de estrategia</p>
+        <div class="grid grid-cols-2 gap-3 max-w-md mx-auto">
+          <button
+            type="button"
+            class="rounded-xl py-3 font-medium transition-colors"
+            :class="modoSeleccion === 'manual' ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'"
+            @click="modoSeleccion = 'manual'"
+          >
+            Manual
+          </button>
+          <button
+            type="button"
+            class="rounded-xl py-3 font-medium transition-colors"
+            :class="modoSeleccion === 'automatico' ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'"
+            @click="modoSeleccion = 'automatico'"
+          >
+            Automático
+          </button>
+        </div>
+      </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <section class="lg:col-span-2 grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 text-center">
           <p class="text-sm text-neutral-500 mb-2">Saldo Binance Demo</p>
           <p v-if="estadoSaldo === 'loading'" class="text-sm text-neutral-400">Consultando...</p>
@@ -402,7 +603,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 text-center">
+      <section class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 text-center">
         <template v-if="openPosition">
           <p class="text-sm text-neutral-500 mb-3">📈 Posición abierta — {{ openPosition.symbol }}</p>
           <div class="grid grid-cols-3 gap-4">
@@ -424,7 +625,20 @@ onUnmounted(() => {
       </section>
 
       <section class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
-        <p class="text-sm text-neutral-500 mb-3 text-center">Actividad</p>
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-sm text-neutral-500">Actividad</p>
+          <button
+            type="button"
+            class="text-xs text-neutral-500 hover:text-red-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="estadoReseteoActividad === 'loading'"
+            @click="resetearActividad"
+          >
+            Resetear actividad
+          </button>
+        </div>
+        <p v-if="estadoReseteoActividad === 'error'" class="text-center text-xs text-red-400 mb-2">
+          No se pudo borrar la actividad.
+        </p>
         <p v-if="eventos.length === 0" class="text-center text-sm text-neutral-500">Sin eventos todavía.</p>
         <ul v-else class="flex flex-col gap-1 font-mono text-sm max-h-64 overflow-y-auto">
           <li v-for="evento in eventos" :key="evento.id" class="text-neutral-300">
@@ -459,8 +673,8 @@ onUnmounted(() => {
         </ul>
       </section>
 
-      <section class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
-        <p class="text-sm text-neutral-500 mb-3 text-center">Buscar y aplicar una estrategia</p>
+      <section class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <p class="text-sm text-neutral-500 mb-3 text-center">Capital y modo de cuenta</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="rounded-xl bg-neutral-800/40 p-4">
@@ -510,6 +724,10 @@ onUnmounted(() => {
         >
           El capital a trabajar supera el saldo disponible en Binance Demo.
         </p>
+      </section>
+
+      <section v-if="modoSeleccion === 'manual'" class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <p class="text-sm text-neutral-500 mb-3 text-center">Modo: Manual</p>
 
         <button
           type="button"
@@ -538,9 +756,15 @@ onUnmounted(() => {
           <div v-else-if="estadoBusqueda === 'success'" class="flex flex-col gap-4">
             <div class="text-center">
               <p class="text-sm text-neutral-500">Estrategia seleccionada</p>
-              <p class="font-medium">
-                {{ resultado.selectedCandidate ? resultado.selectedCandidate.strategyName : 'No se seleccionó una estrategia.' }}
-              </p>
+              <p v-if="resultado.selectedCandidate" class="font-medium">{{ resultado.selectedCandidate.strategyName }}</p>
+              <template v-else>
+                <p class="font-medium">No se seleccionó una estrategia.</p>
+                <p class="text-sm text-neutral-400 mt-2">
+                  Varias estrategias pueden haber superado la validación,
+                  pero ninguna cumplió las condiciones para ser seleccionada
+                  de forma única.
+                </p>
+              </template>
             </div>
 
             <div v-if="resultado.validationResults.length" class="text-center">
@@ -558,15 +782,23 @@ onUnmounted(() => {
                 >
                   <p class="font-medium flex items-center justify-between">
                     <span>{{ validationResult.candidate.strategyName }}</span>
-                    <span :class="validationResult.passed ? 'text-emerald-400' : 'text-red-400'">
-                      {{ validationResult.passed ? 'PASSED' : 'FAILED' }}
+                    <span
+                      :class="
+                        esSeleccionada(validationResult.candidate.strategyName)
+                          ? 'text-emerald-400'
+                          : validationResult.passed
+                            ? 'text-sky-400'
+                            : 'text-red-400'
+                      "
+                    >
+                      {{ esSeleccionada(validationResult.candidate.strategyName) ? 'Seleccionada' : validationResult.passed ? 'Validada' : 'No validada' }}
                     </span>
                   </p>
                   <p class="text-neutral-400 mt-1">
-                    P/L: {{ formatoDinero(validationResult.validationEvaluation.profitLoss) }} ·
-                    Win rate: {{ validationResult.validationEvaluation.winRate }}% ·
-                    Drawdown: {{ validationResult.validationEvaluation.maxDrawdownPercentage }}% ·
-                    Profit factor: {{ validationResult.validationEvaluation.profitFactor }}
+                    P/L: {{ formatoPorcentaje(validationResult.validationEvaluation.profitLossPercentage, true) }} ·
+                    Win rate: {{ formatoPorcentaje(validationResult.validationEvaluation.winRate) }} ·
+                    Drawdown: {{ formatoPorcentaje(validationResult.validationEvaluation.maxDrawdownPercentage) }} ·
+                    Profit factor: {{ formatoProfitFactor(validationResult.validationEvaluation.profitFactor) }}
                   </p>
                 </li>
               </ul>
@@ -585,8 +817,8 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section v-if="estrategiaActiva" class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 flex flex-col gap-4">
-        <p class="text-sm text-neutral-500 text-center">Control del modo automático</p>
+      <section v-if="modoSeleccion === 'manual' && estrategiaActiva" class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 flex flex-col gap-4">
+        <p class="text-sm text-neutral-500 text-center">Control de ejecución</p>
 
         <p v-if="estadoAccionAutomatica === 'error'" class="text-sm text-red-400 text-center">
           {{ errorAccionAutomatica }}
@@ -599,7 +831,7 @@ onUnmounted(() => {
           :disabled="estadoAccionAutomatica === 'loading'"
           @click="iniciarAutomatico"
         >
-          Iniciar automático
+          Iniciar ejecución
         </button>
         <button
           v-else
@@ -611,6 +843,104 @@ onUnmounted(() => {
           Detener
         </button>
       </section>
+
+      <section v-if="modoSeleccion === 'automatico'" class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 flex flex-col gap-4">
+        <p class="text-sm text-neutral-500 text-center">Modo: Automático</p>
+
+        <template v-if="automaticoSeleccion?.status === 'running' || estrategiaActiva?.status === 'running'">
+          <p class="text-lg font-semibold text-emerald-400 text-center">🤖 Bot automático</p>
+          <p class="text-sm text-neutral-500 text-center">Estado: Ejecutando</p>
+
+          <template v-if="estrategiaActiva?.status === 'running'">
+            <p class="text-center mt-2">
+              Estrategia seleccionada automáticamente:
+              <span class="font-medium block">{{ estrategiaActiva.strategy?.name }}</span>
+            </p>
+            <p class="text-sm text-neutral-500 text-center">No requiere confirmación.</p>
+          </template>
+          <template v-else>
+            <p class="text-center text-neutral-400 mt-2">
+              No se encontró una estrategia seleccionable.
+            </p>
+            <p class="text-sm text-neutral-500 text-center">
+              El bot volverá a buscar automáticamente en el próximo ciclo.
+            </p>
+            <p v-if="automaticoSeleccion?.nextSearchAt" class="text-sm text-neutral-500 text-center">
+              Próxima búsqueda: {{ formatoHora(automaticoSeleccion.nextSearchAt) }}
+            </p>
+          </template>
+
+          <div v-if="automaticoSeleccion?.lastCycle" class="rounded-xl bg-neutral-800/40 p-4 mt-2">
+            <p class="text-sm text-neutral-500 mb-3 text-center">Mercado analizado (último ciclo)</p>
+
+            <p v-if="automaticoSeleccion.lastCycle.assets.length === 0" class="text-center text-sm text-neutral-500">
+              Sin activos revisados en el último ciclo.
+            </p>
+            <ul v-else class="flex flex-col gap-2 text-sm">
+              <li
+                v-for="activo in automaticoSeleccion.lastCycle.assets"
+                :key="activo.symbol"
+                class="flex items-center justify-between rounded-lg bg-neutral-900/60 px-3 py-2"
+              >
+                <span class="font-medium">{{ activo.symbol }}</span>
+                <span class="text-right">
+                  <span :class="claseEstadoActivo(activo.status)">{{ textoEstadoActivo(activo) }}</span>
+                  <span class="block text-xs text-neutral-500">{{ formatoHora(activo.evaluatedAt) }}</span>
+                </span>
+              </li>
+            </ul>
+
+            <div class="grid grid-cols-2 gap-3 mt-4 text-center">
+              <div>
+                <p class="text-xs text-neutral-500">Activos revisados</p>
+                <p class="font-semibold tabular-nums">{{ automaticoSeleccion.lastCycle.assetsReviewed }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-neutral-500">Candidatos encontrados</p>
+                <p class="font-semibold tabular-nums">{{ automaticoSeleccion.lastCycle.candidatesFound }}</p>
+              </div>
+            </div>
+          </div>
+
+          <p v-if="estadoAccionAutomaticoSeleccion === 'error'" class="text-sm text-red-400 text-center">
+            {{ errorAccionAutomaticoSeleccion }}
+          </p>
+
+          <button
+            type="button"
+            class="w-full rounded-xl bg-red-500 text-neutral-950 font-semibold py-3 hover:bg-red-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="estadoAccionAutomaticoSeleccion === 'loading'"
+            @click="detenerAutomaticoSeleccion"
+          >
+            Detener
+          </button>
+        </template>
+
+        <template v-else>
+          <p v-if="modo === 'Real'" class="text-sm text-neutral-500 text-center">
+            El modo Real todavía no está disponible.
+          </p>
+          <p
+            v-else-if="estadoSaldo === 'success' && Number(capitalATrabajar) > Number(saldoBinance)"
+            class="text-sm text-red-400 text-center"
+          >
+            El capital a trabajar supera el saldo disponible en Binance Demo.
+          </p>
+          <p v-if="estadoAccionAutomaticoSeleccion === 'error'" class="text-sm text-red-400 text-center">
+            {{ errorAccionAutomaticoSeleccion }}
+          </p>
+
+          <button
+            type="button"
+            class="w-full rounded-xl bg-emerald-500 text-neutral-950 font-semibold py-4 text-lg hover:bg-emerald-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="estadoAccionAutomaticoSeleccion === 'loading' || !puedeBuscar()"
+            @click="iniciarAutomaticoSeleccion"
+          >
+            {{ estadoAccionAutomaticoSeleccion === 'loading' ? 'Buscando estrategia...' : 'Iniciar automático' }}
+          </button>
+        </template>
+      </section>
+    </div>
     </div>
   </main>
 </template>

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ActiveStrategy;
 use App\Models\Asset;
+use App\Models\AutomaticSearchState;
 use App\Models\Trade;
 use App\Models\TradingAccount;
 use Carbon\CarbonImmutable;
@@ -193,6 +194,37 @@ class AutomaticModeControllerTest extends TestCase
         $response = $this->getJson('/api/automatic/status');
 
         $response->assertOk()->assertJsonPath('openPosition', null);
+    }
+
+    public function test_automatic_search_last_cycle_is_exposed_when_present(): void
+    {
+        $account = TradingAccount::factory()->create();
+        $lastCycle = [
+            'completedAt' => '2026-09-20T15:37:00.000000Z',
+            'assetsReviewed' => 2,
+            'candidatesFound' => 0,
+            'assets' => [
+                ['symbol' => 'BTCUSDT', 'evaluatedAt' => '2026-09-20T15:37:00.000000Z', 'status' => 'no_opportunity', 'reason' => null],
+                ['symbol' => 'ETHUSDT', 'evaluatedAt' => '2026-09-20T15:37:00.000000Z', 'status' => 'discarded', 'reason' => 'riesgo alto'],
+            ],
+        ];
+        AutomaticSearchState::factory()->create(['account_id' => $account->id, 'last_cycle' => $lastCycle]);
+        $this->actingAsAccount($account);
+
+        $response = $this->getJson('/api/automatic/status');
+
+        $response->assertOk()->assertJsonPath('automaticSearch.lastCycle', $lastCycle);
+    }
+
+    public function test_automatic_search_last_cycle_is_null_when_no_cycle_has_run_yet(): void
+    {
+        $account = TradingAccount::factory()->create();
+        AutomaticSearchState::factory()->create(['account_id' => $account->id]);
+        $this->actingAsAccount($account);
+
+        $response = $this->getJson('/api/automatic/status');
+
+        $response->assertOk()->assertJsonPath('automaticSearch.lastCycle', null);
     }
 
     /**

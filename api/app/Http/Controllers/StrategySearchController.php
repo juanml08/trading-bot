@@ -49,10 +49,10 @@ class StrategySearchController extends Controller
             evaluator: new StrategyEvaluator,
             selector: new StrategySelector,
             split: new TrainValidationSplit(50),
-            minimumTrades: 0,
-            minimumWinRate: '0',
-            maximumDrawdown: '100',
-            minimumProfitLoss: '-1000000',
+            minimumTrades: config('trading.discovery.minimum_trades'),
+            minimumWinRate: config('trading.discovery.minimum_win_rate'),
+            maximumDrawdown: config('trading.discovery.maximum_drawdown'),
+            minimumProfitLoss: config('trading.discovery.minimum_profit_loss'),
         );
 
         $runner = new MarketDataStrategyPipelineRunner($marketDataProvider, $pipeline);

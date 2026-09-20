@@ -96,4 +96,15 @@ class TradingAccount extends Model
     {
         return $this->hasMany(ActiveStrategy::class, 'account_id');
     }
+
+    /**
+     * Get the automatic mode (autonomous strategy selection) state for the
+     * trading account, if it was ever started.
+     *
+     * @return HasOne<AutomaticSearchState, $this>
+     */
+    public function automaticSearchState(): HasOne
+    {
+        return $this->hasOne(AutomaticSearchState::class, 'account_id');
+    }
 }
