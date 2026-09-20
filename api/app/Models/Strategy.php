@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
+use Database\Factories\StrategyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'description', 'version', 'is_active'])]
+#[Fillable(['name', 'description', 'version', 'class', 'parameters', 'is_active'])]
 class Strategy extends Model
 {
+    /** @use HasFactory<StrategyFactory> */
+    use HasFactory;
+
     /**
      * Get the attributes that should be cast.
      *
@@ -17,6 +22,7 @@ class Strategy extends Model
     protected function casts(): array
     {
         return [
+            'parameters' => 'array',
             'is_active' => 'boolean',
         ];
     }
@@ -29,6 +35,16 @@ class Strategy extends Model
     public function trades(): HasMany
     {
         return $this->hasMany(Trade::class, 'strategy_id');
+    }
+
+    /**
+     * Get the active strategy assignments for this strategy.
+     *
+     * @return HasMany<ActiveStrategy, $this>
+     */
+    public function activeStrategies(): HasMany
+    {
+        return $this->hasMany(ActiveStrategy::class, 'strategy_id');
     }
 
     /**

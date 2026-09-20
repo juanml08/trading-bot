@@ -4,8 +4,15 @@ namespace App\Strategy;
 
 /**
  * Selects, at most, one {@see StrategyCandidate} out of the candidates that
- * already passed {@see StrategyDiscovery}, using Pareto dominance instead of
- * an arbitrary weighted score.
+ * already passed VALIDATION, using Pareto dominance instead of an arbitrary
+ * weighted score.
+ *
+ * It compares each {@see ValidationResult}'s `validationEvaluation` — the
+ * out-of-sample metrics, not the TRAIN metrics `StrategyCandidate->evaluation`
+ * carries. TRAIN is what {@see StrategyDiscovery} used to decide which
+ * candidates were worth evaluating on VALIDATION in the first place; picking
+ * the final winner on TRAIN again would reward whichever candidate best fit
+ * data it has already "seen", not the one that actually generalized.
  *
  * A candidate A dominates a candidate B when A is at least as good as B on
  * every criterion (profit/loss percentage, max drawdown, win rate, total
@@ -27,46 +34,46 @@ namespace App\Strategy;
  * Profit Factor is listed as a desirable criterion for this block. It is
  * now exposed by {@see StrategyEvaluation}, but is intentionally left out
  * of the dominance comparison in this version. Commissions, slippage,
- * per-period consistency, train/validation splits, out-of-sample testing,
- * different market regimes, statistical confidence, and a more
- * sophisticated selection mechanism are all left for future iterations.
+ * per-period consistency, out-of-sample testing across different market
+ * regimes, statistical confidence, and a more sophisticated selection
+ * mechanism are all left for future iterations.
  */
 final class StrategySelector
 {
     /**
-     * @param  array<string, StrategyCandidate>  $candidates  keyed by strategy name
+     * @param  array<string, ValidationResult>  $survivors  keyed by strategy name; every entry must have already passed VALIDATION
      */
-    public function select(array $candidates): ?StrategyCandidate
+    public function select(array $survivors): ?StrategyCandidate
     {
-        $nonDominated = $this->rejectDominated($candidates);
+        $nonDominated = $this->rejectDominated($survivors);
 
-        return count($nonDominated) === 1 ? array_values($nonDominated)[0] : null;
+        return count($nonDominated) === 1 ? array_values($nonDominated)[0]->candidate : null;
     }
 
     /**
-     * @param  array<string, StrategyCandidate>  $candidates
-     * @return array<string, StrategyCandidate>
+     * @param  array<string, ValidationResult>  $survivors
+     * @return array<string, ValidationResult>
      */
-    private function rejectDominated(array $candidates): array
+    private function rejectDominated(array $survivors): array
     {
         return array_filter(
-            $candidates,
-            fn (string $key): bool => ! $this->isDominatedByAnother($key, $candidates),
+            $survivors,
+            fn (string $key): bool => ! $this->isDominatedByAnother($key, $survivors),
             ARRAY_FILTER_USE_KEY,
         );
     }
 
     /**
-     * @param  array<string, StrategyCandidate>  $candidates
+     * @param  array<string, ValidationResult>  $survivors
      */
-    private function isDominatedByAnother(string $key, array $candidates): bool
+    private function isDominatedByAnother(string $key, array $survivors): bool
     {
-        foreach ($candidates as $otherKey => $other) {
+        foreach ($survivors as $otherKey => $other) {
             if ($otherKey === $key) {
                 continue;
             }
 
-            if ($this->dominates($other, $candidates[$key])) {
+            if ($this->dominates($other, $survivors[$key])) {
                 return true;
             }
         }
@@ -74,10 +81,10 @@ final class StrategySelector
         return false;
     }
 
-    private function dominates(StrategyCandidate $a, StrategyCandidate $b): bool
+    private function dominates(ValidationResult $a, ValidationResult $b): bool
     {
-        $evaluationA = $a->evaluation;
-        $evaluationB = $b->evaluation;
+        $evaluationA = $a->validationEvaluation;
+        $evaluationB = $b->validationEvaluation;
 
         $profitComparison = bccomp($evaluationA->profitLossPercentage, $evaluationB->profitLossPercentage, 18);
         $drawdownComparison = bccomp($evaluationA->maxDrawdownPercentage, $evaluationB->maxDrawdownPercentage, 18);

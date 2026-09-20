@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
+use Database\Factories\BotEventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['account_id', 'event_type', 'asset', 'message', 'data'])]
 class BotEvent extends Model
 {
+    /** @use HasFactory<BotEventFactory> */
+    use HasFactory;
+
     const UPDATED_AT = null;
 
     /**

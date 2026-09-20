@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
+use Database\Factories\AssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['exchange', 'symbol', 'base_asset', 'quote_asset', 'is_active'])]
 class Asset extends Model
 {
+    /** @use HasFactory<AssetFactory> */
+    use HasFactory;
+
     const UPDATED_AT = null;
 
     /**

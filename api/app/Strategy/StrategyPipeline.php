@@ -78,15 +78,17 @@ final readonly class StrategyPipeline
             $failedCriteria = $this->failedCriteria($validationEvaluation);
             $passed = $failedCriteria === [];
 
-            $validationResults[] = new ValidationResult(
+            $validationResult = new ValidationResult(
                 candidate: $candidate,
                 validationEvaluation: $validationEvaluation,
                 passed: $passed,
                 failedCriteria: $failedCriteria,
             );
 
+            $validationResults[] = $validationResult;
+
             if ($passed) {
-                $survivors[$name] = $candidate;
+                $survivors[$name] = $validationResult;
             }
         }
 

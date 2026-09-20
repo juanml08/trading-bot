@@ -16,11 +16,17 @@ use InvalidArgumentException;
  * {@see MarketDataStrategyPipelineRunner}, which already wires Market Data
  * to {@see StrategyPipeline}.
  *
- * `$initialCapital` is the capital the user explicitly authorizes for this
- * evaluation — a distinct concept from any `TradingAccount` balance. This
- * action never reads or compares against account balances; it forwards
- * `$initialCapital` unmodified, exactly as received, all the way to the
- * pipeline.
+ * `$initialCapital` is evaluation capital: the virtual amount a backtest run
+ * is simulated with. It is deliberately distinct from two other, unrelated
+ * amounts this action knows nothing about: a `TradingAccount`'s real
+ * balance, and whatever "authorized capital" ceiling a future Risk Manager
+ * may enforce against that balance (`RiskSetting` and `TradingAccount`
+ * exist as models but have no migration yet, so there is nothing real to
+ * read from them today). This action never reads or compares against
+ * either; it forwards `$initialCapital` unmodified, exactly as received,
+ * all the way to the pipeline. Enforcing "evaluation capital must not
+ * exceed authorized capital" belongs to that future Risk Manager stage,
+ * not here.
  *
  * This is orchestration only: it does not fetch market data, run
  * backtesting, Discovery, Validation, or Selection itself — all of that

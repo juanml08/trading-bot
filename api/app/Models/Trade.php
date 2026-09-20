@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\TradeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'account_id',
     'strategy_id',
+    'active_strategy_id',
     'asset_id',
     'entry_price',
     'exit_price',
@@ -25,6 +28,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Trade extends Model
 {
+    /** @use HasFactory<TradeFactory> */
+    use HasFactory;
+
     const UPDATED_AT = null;
 
     /**
@@ -56,6 +62,17 @@ class Trade extends Model
     public function tradingAccount(): BelongsTo
     {
         return $this->belongsTo(TradingAccount::class, 'account_id');
+    }
+
+    /**
+     * Get the active strategy assignment that opened this trade, i.e. the
+     * automatic-mode "cycle" it belongs to for accumulated P/L purposes.
+     *
+     * @return BelongsTo<ActiveStrategy, $this>
+     */
+    public function activeStrategy(): BelongsTo
+    {
+        return $this->belongsTo(ActiveStrategy::class, 'active_strategy_id');
     }
 
     /**
