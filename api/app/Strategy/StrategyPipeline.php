@@ -33,6 +33,10 @@ use App\MarketData\Candle;
  * simple check — fed by the exact same threshold values this class used to
  * build its internal `$discovery` instance, so there is a single source for
  * the criteria and no risk of TRAIN and VALIDATION disagreeing on them.
+ * `failedCriteria()` is reused a second time, against TRAIN evaluations, to
+ * build {@see DiscoveryResult} for every strategy — including the ones
+ * `discover()` did not let through — for the same reason: it is the only
+ * place that already knows, per criterion, why a strategy did not qualify.
  */
 final readonly class StrategyPipeline
 {
@@ -70,6 +74,18 @@ final readonly class StrategyPipeline
 
         $candidates = $this->discovery->discover($trainEvaluations);
 
+        $discoveryResults = [];
+        foreach ($trainEvaluations as $name => $trainEvaluation) {
+            $failedCriteria = $this->failedCriteria($trainEvaluation);
+
+            $discoveryResults[$name] = new DiscoveryResult(
+                strategyName: $name,
+                trainEvaluation: $trainEvaluation,
+                passed: $failedCriteria === [],
+                failedCriteria: $failedCriteria,
+            );
+        }
+
         $validationResults = [];
         $survivors = [];
 
@@ -95,6 +111,7 @@ final readonly class StrategyPipeline
         return new StrategyPipelineResult(
             selectedCandidate: $this->selector->select($survivors),
             validationResults: $validationResults,
+            discoveryResults: $discoveryResults,
         );
     }
 

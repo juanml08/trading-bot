@@ -4,16 +4,21 @@ namespace App\Actions\Strategy;
 
 use App\MarketData\Timeframe;
 use App\Models\ActiveStrategy;
+use App\Models\AutomaticSearchCycle;
+use App\Models\AutomaticSearchCycleAsset;
 use App\Models\AutomaticSearchState;
 use App\Models\BotEvent;
 use App\Models\TradingAccount;
 use App\Opportunity\OpportunityCandidate;
 use App\Opportunity\OpportunityScanner;
+use App\Strategy\DiscoveryResult;
 use App\Strategy\Strategy;
 use App\Strategy\StrategyCatalog;
+use App\Strategy\StrategyEvaluation;
 use App\Strategy\StrategyPipelineResult;
 use App\Strategy\ValidationResult;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -37,16 +42,27 @@ use Throwable;
  * candidates the Scanner selected (in its ranked order) before showing what
  * the Strategy Pipeline did with each one.
  *
- * Also records a per-asset review (symbol, evaluation time, outcome, and a
- * short reason when one is already available from {@see ValidationResult})
- * for every candidate actually evaluated this cycle, plus a small summary
- * (assets reviewed, candidates found). This is a transparency layer only —
- * it reads outcomes {@see SearchStrategiesAction} already produced, it does
- * not change how a candidate is discovered, validated, or selected. The
- * review is persisted on {@see AutomaticSearchState::$last_cycle} as a
- * snapshot of the most recent cycle only (overwritten every time, not a
- * history), and a `automatic_search_completed` {@see BotEvent} summarizes it
- * in the Activity console.
+ * Also records a per-asset review (symbol, evaluation time, outcome, a short
+ * reason when one is already available from {@see ValidationResult}, and a
+ * per-strategy diagnostic breakdown — see `strategyDiagnostics()`) for every
+ * candidate actually evaluated this cycle, plus a small summary (assets
+ * reviewed, candidates found). This is a transparency layer only — it reads
+ * outcomes {@see SearchStrategiesAction} already produced (by way of
+ * {@see StrategyPipelineResult}'s {@see DiscoveryResult} and
+ * {@see ValidationResult} entries), it does not change how a candidate is
+ * discovered, validated, or selected, and it does not recompute any metric
+ * {@see StrategyEvaluator} did not already produce. The review is persisted
+ * on {@see AutomaticSearchState::$last_cycle} as a snapshot of the most
+ * recent cycle only (overwritten every time, not a history), and a
+ * `automatic_search_completed` {@see BotEvent} summarizes it in the Activity
+ * console. The same review is additionally persisted, unchanged, as a
+ * permanent {@see AutomaticSearchCycle} history row (with its
+ * {@see AutomaticSearchCycleAsset} and
+ * {@see \App\Models\AutomaticSearchCycleStrategy} children) every time
+ * `last_cycle` is written — so a completed cycle is never lost even though
+ * `last_cycle` itself keeps being overwritten. Persisting is purely a
+ * consequence of the result already computed above: it does not re-run or
+ * re-judge Discovery/Validation/Selection.
  */
 final readonly class RunAutomaticSearchAction
 {
@@ -198,6 +214,12 @@ final readonly class RunAutomaticSearchAction
 
             $cycle = $this->cycleSummary($now, $assetReviews);
 
+            // History is persisted before `last_cycle` is written: if the
+            // history insert fails partway (see `persistCycleHistory()`'s own
+            // transaction), the exception must propagate before `last_cycle`
+            // ever claims a cycle that was not durably recorded.
+            $this->persistCycleHistory($account, $now, $cycle);
+
             $state->update([
                 'symbol' => $candidate->symbol,
                 'last_searched_at' => $now,
@@ -218,7 +240,7 @@ final readonly class RunAutomaticSearchAction
      * analizado" view, reusing exactly what {@see SearchStrategiesAction}
      * returned — it does not re-run or re-judge Discovery/Validation/Selection.
      *
-     * @return array{symbol: string, evaluatedAt: string, status: string, reason: string|null}
+     * @return array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array{name: string, status: string, discovery: array{passed: bool, failedCriteria: string[], metrics: array<string, mixed>}, validation: array{passed: bool, failedCriteria: string[], metrics: array<string, mixed>}|null}>}
      */
     private function reviewFor(string $symbol, CarbonImmutable $evaluatedAt, StrategyPipelineResult $result): array
     {
@@ -238,6 +260,99 @@ final readonly class RunAutomaticSearchAction
             'evaluatedAt' => $evaluatedAt->toISOString(),
             'status' => $status,
             'reason' => $reason,
+            'strategies' => $this->strategyDiagnostics($result),
+        ];
+    }
+
+    /**
+     * Breaks the asset-level outcome down per strategy, for diagnostic
+     * purposes only: exactly what stage each strategy reached
+     * (Discovery/Validation/Selector), why it was discarded when it was,
+     * and the metrics {@see StrategyEvaluator} already computed for it at
+     * each stage it reached. Built entirely from
+     * {@see StrategyPipelineResult::$discoveryResults} and
+     * {@see StrategyPipelineResult::$validationResults} — no metric here is
+     * recalculated, and none of this changes `$result->selectedCandidate`.
+     *
+     * @return array<int, array{name: string, status: string, discovery: array{passed: bool, failedCriteria: string[], metrics: array<string, mixed>}, validation: array{passed: bool, failedCriteria: string[], metrics: array<string, mixed>}|null}>
+     */
+    private function strategyDiagnostics(StrategyPipelineResult $result): array
+    {
+        $validationResultsByStrategyName = [];
+        foreach ($result->validationResults as $validationResult) {
+            $validationResultsByStrategyName[$validationResult->candidate->strategyName] = $validationResult;
+        }
+
+        $selectedStrategyName = $result->selectedCandidate?->strategyName;
+
+        $diagnostics = [];
+
+        foreach ($result->discoveryResults as $strategyName => $discoveryResult) {
+            $validationResult = $validationResultsByStrategyName[$strategyName] ?? null;
+
+            $diagnostics[] = [
+                'name' => $strategyName,
+                'status' => $this->strategyStatus($discoveryResult, $validationResult, $strategyName === $selectedStrategyName),
+                'discovery' => [
+                    'passed' => $discoveryResult->passed,
+                    'failedCriteria' => $discoveryResult->failedCriteria,
+                    'metrics' => $this->evaluationMetrics($discoveryResult->trainEvaluation),
+                ],
+                'validation' => $validationResult === null ? null : [
+                    'passed' => $validationResult->passed,
+                    'failedCriteria' => $validationResult->failedCriteria,
+                    'metrics' => $this->evaluationMetrics($validationResult->validationEvaluation),
+                ],
+            ];
+        }
+
+        return $diagnostics;
+    }
+
+    /**
+     * Distinguishes the four ways a strategy's evaluation this cycle can
+     * end, from the most to the least far it got:
+     *
+     * - `discarded_in_discovery`: failed TRAIN Discovery, never reached VALIDATION.
+     * - `discarded_in_validation`: passed Discovery but failed VALIDATION.
+     * - `validated_not_selected`: passed VALIDATION but {@see StrategySelector}
+     *   did not pick it (dominated by another candidate, or no candidate
+     *   dominated the rest).
+     * - `selected`: the one candidate {@see StrategySelector} picked.
+     */
+    private function strategyStatus(DiscoveryResult $discoveryResult, ?ValidationResult $validationResult, bool $isSelected): string
+    {
+        if (! $discoveryResult->passed) {
+            return 'discarded_in_discovery';
+        }
+
+        if ($validationResult === null || ! $validationResult->passed) {
+            return 'discarded_in_validation';
+        }
+
+        return $isSelected ? 'selected' : 'validated_not_selected';
+    }
+
+    /**
+     * Every {@see StrategyEvaluation} field useful for explaining a discard,
+     * as already computed by {@see StrategyEvaluator} — nothing here is
+     * derived or recalculated.
+     *
+     * @return array<string, mixed>
+     */
+    private function evaluationMetrics(StrategyEvaluation $evaluation): array
+    {
+        return [
+            'totalTrades' => $evaluation->totalTrades,
+            'winningTrades' => $evaluation->winningTrades,
+            'losingTrades' => $evaluation->losingTrades,
+            'winRate' => $evaluation->winRate,
+            'profitLoss' => $evaluation->profitLoss,
+            'profitLossPercentage' => $evaluation->profitLossPercentage,
+            'maxDrawdownPercentage' => $evaluation->maxDrawdownPercentage,
+            'profitFactor' => $evaluation->profitFactor,
+            'totalCosts' => $evaluation->totalCosts,
+            'grossProfitLoss' => $evaluation->grossProfitLoss,
         ];
     }
 
@@ -258,8 +373,8 @@ final readonly class RunAutomaticSearchAction
     }
 
     /**
-     * @param  array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null}>  $assetReviews
-     * @return array{completedAt: string, assetsReviewed: int, candidatesFound: int, assets: array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null}>}
+     * @param  array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array<string, mixed>>}>  $assetReviews
+     * @return array{completedAt: string, assetsReviewed: int, candidatesFound: int, assets: array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array<string, mixed>>}>}
      */
     private function cycleSummary(CarbonImmutable $now, array $assetReviews): array
     {
@@ -275,7 +390,7 @@ final readonly class RunAutomaticSearchAction
     }
 
     /**
-     * @param  array{completedAt: string, assetsReviewed: int, candidatesFound: int, assets: array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null}>}  $cycle
+     * @param  array{completedAt: string, assetsReviewed: int, candidatesFound: int, assets: array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array<string, mixed>>}>}  $cycle
      */
     private function logCycleCompleted(TradingAccount $account, array $cycle): void
     {
@@ -296,12 +411,107 @@ final readonly class RunAutomaticSearchAction
     }
 
     /**
-     * @param  array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null}>  $assetReviews
+     * Persists the cycle summary already built by {@see cycleSummary()} (and,
+     * transitively, {@see reviewFor()}/{@see strategyDiagnostics()}) as a
+     * permanent {@see AutomaticSearchCycle} history row, so it survives the
+     * next cycle overwriting {@see AutomaticSearchState::$last_cycle}. Reads
+     * only — every field here was already computed above; nothing is
+     * recalculated.
+     *
+     * Wrapped in a single transaction because the cycle, its assets, and
+     * their strategies must land together or not at all: a failure partway
+     * through (e.g. one insert violates a constraint) must not leave a cycle
+     * row with only some of its assets/strategies. The exception still
+     * propagates after the rollback — callers must not treat that cycle as
+     * persisted (see the two call sites, which persist history before
+     * writing `last_cycle`).
+     *
+     * @param  array{completedAt: string, assetsReviewed: int, candidatesFound: int, assets: array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array<string, mixed>>}>}  $cycle
+     */
+    private function persistCycleHistory(TradingAccount $account, CarbonImmutable $now, array $cycle): void
+    {
+        DB::transaction(function () use ($account, $now, $cycle): void {
+            $cycleRecord = AutomaticSearchCycle::query()->create([
+                'account_id' => $account->id,
+                'started_at' => $now,
+                'completed_at' => $now,
+                'assets_reviewed' => $cycle['assetsReviewed'],
+                'candidates_found' => $cycle['candidatesFound'],
+            ]);
+
+            foreach ($cycle['assets'] as $assetReview) {
+                $assetRecord = $cycleRecord->assets()->create([
+                    'symbol' => $assetReview['symbol'],
+                    'status' => $assetReview['status'],
+                    'evaluated_at' => $assetReview['evaluatedAt'],
+                ]);
+
+                foreach ($assetReview['strategies'] as $strategyDiagnostic) {
+                    $assetRecord->strategies()->create($this->strategyHistoryAttributes($strategyDiagnostic));
+                }
+            }
+        });
+    }
+
+    /**
+     * Maps one {@see strategyDiagnostics()} entry onto
+     * {@see AutomaticSearchCycleStrategy}'s columns. TRAIN metrics always
+     * exist (Discovery always evaluates); VALIDATION metrics stay null for a
+     * strategy that never reached Validation.
+     *
+     * @param  array{name: string, status: string, discovery: array{passed: bool, failedCriteria: string[], metrics: array<string, mixed>}, validation: array{passed: bool, failedCriteria: string[], metrics: array<string, mixed>}|null}  $diagnostic
+     * @return array<string, mixed>
+     */
+    private function strategyHistoryAttributes(array $diagnostic): array
+    {
+        $discovery = $diagnostic['discovery'];
+        $validation = $diagnostic['validation'];
+
+        return [
+            'strategy_name' => $diagnostic['name'],
+            'status' => $diagnostic['status'],
+            'discovery_passed' => $discovery['passed'],
+            'validation_passed' => $validation['passed'] ?? null,
+            'failed_criteria' => [
+                'discovery' => $discovery['failedCriteria'],
+                'validation' => $validation['failedCriteria'] ?? [],
+            ],
+            'train_total_trades' => $discovery['metrics']['totalTrades'],
+            'train_winning_trades' => $discovery['metrics']['winningTrades'],
+            'train_losing_trades' => $discovery['metrics']['losingTrades'],
+            'train_win_rate' => $discovery['metrics']['winRate'],
+            'train_profit_loss' => $discovery['metrics']['profitLoss'],
+            'train_profit_loss_percentage' => $discovery['metrics']['profitLossPercentage'],
+            'train_max_drawdown_percentage' => $discovery['metrics']['maxDrawdownPercentage'],
+            'train_profit_factor' => $discovery['metrics']['profitFactor'],
+            'train_total_costs' => $discovery['metrics']['totalCosts'],
+            'train_gross_profit_loss' => $discovery['metrics']['grossProfitLoss'],
+            'validation_total_trades' => $validation['metrics']['totalTrades'] ?? null,
+            'validation_winning_trades' => $validation['metrics']['winningTrades'] ?? null,
+            'validation_losing_trades' => $validation['metrics']['losingTrades'] ?? null,
+            'validation_win_rate' => $validation['metrics']['winRate'] ?? null,
+            'validation_profit_loss' => $validation['metrics']['profitLoss'] ?? null,
+            'validation_profit_loss_percentage' => $validation['metrics']['profitLossPercentage'] ?? null,
+            'validation_max_drawdown_percentage' => $validation['metrics']['maxDrawdownPercentage'] ?? null,
+            'validation_profit_factor' => $validation['metrics']['profitFactor'] ?? null,
+            'validation_total_costs' => $validation['metrics']['totalCosts'] ?? null,
+            'validation_gross_profit_loss' => $validation['metrics']['grossProfitLoss'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<int, array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array<string, mixed>>}>  $assetReviews
      */
     private function scheduleNextAttempt(AutomaticSearchState $state, CarbonImmutable $now, array $assetReviews): void
     {
         $nextSearchAt = $this->nextRetryAt($now);
         $cycle = $this->cycleSummary($now, $assetReviews);
+
+        // Same ordering rationale as the candidate-found path above: persist
+        // history first, so a failure there leaves `last_cycle` (and the
+        // BotEvents below) exactly as they were before this attempt, instead
+        // of claiming a cycle that was never durably recorded.
+        $this->persistCycleHistory($state->tradingAccount, $now, $cycle);
 
         $state->update([
             'last_searched_at' => $now,

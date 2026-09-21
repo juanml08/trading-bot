@@ -107,4 +107,15 @@ class TradingAccount extends Model
     {
         return $this->hasOne(AutomaticSearchState::class, 'account_id');
     }
+
+    /**
+     * Get the historical "Modo Automático" search cycles for the trading
+     * account (see {@see AutomaticSearchCycle}).
+     *
+     * @return HasMany<AutomaticSearchCycle, $this>
+     */
+    public function automaticSearchCycles(): HasMany
+    {
+        return $this->hasMany(AutomaticSearchCycle::class, 'account_id');
+    }
 }

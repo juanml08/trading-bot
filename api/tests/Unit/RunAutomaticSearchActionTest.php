@@ -76,6 +76,19 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertSame('BTCUSDT', $lastCycle['assets'][0]['symbol']);
         $this->assertSame('candidate_found', $lastCycle['assets'][0]['status']);
         $this->assertNull($lastCycle['assets'][0]['reason']);
+
+        // The single strategy evaluated reached the Selector and was picked,
+        // so its per-strategy diagnostic must say exactly that.
+        $strategies = $lastCycle['assets'][0]['strategies'];
+        $this->assertCount(1, $strategies);
+        $this->assertSame('Idle', $strategies[0]['name']);
+        $this->assertSame('selected', $strategies[0]['status']);
+        $this->assertTrue($strategies[0]['discovery']['passed']);
+        $this->assertSame([], $strategies[0]['discovery']['failedCriteria']);
+        $this->assertNotNull($strategies[0]['validation']);
+        $this->assertTrue($strategies[0]['validation']['passed']);
+        $this->assertSame([], $strategies[0]['validation']['failedCriteria']);
+        $this->assertArrayHasKey('totalTrades', $strategies[0]['validation']['metrics']);
     }
 
     public function test_no_selectable_candidate_does_not_apply_anything_and_schedules_the_next_attempt(): void
@@ -237,6 +250,18 @@ class RunAutomaticSearchActionTest extends TestCase
         $lastCycle = $state->fresh()->last_cycle;
         $this->assertSame('no_opportunity', $lastCycle['assets'][0]['status']);
         $this->assertNull($lastCycle['assets'][0]['reason']);
+
+        // The strategy never reached VALIDATION, so its diagnostic must say
+        // exactly that, with Discovery's own failed criteria and no
+        // validation block at all (rather than an invented one).
+        $strategies = $lastCycle['assets'][0]['strategies'];
+        $this->assertCount(1, $strategies);
+        $this->assertSame('Idle', $strategies[0]['name']);
+        $this->assertSame('discarded_in_discovery', $strategies[0]['status']);
+        $this->assertFalse($strategies[0]['discovery']['passed']);
+        $this->assertSame(['minimumTrades'], $strategies[0]['discovery']['failedCriteria']);
+        $this->assertSame(0, $strategies[0]['discovery']['metrics']['totalTrades']);
+        $this->assertNull($strategies[0]['validation']);
     }
 
     /**
@@ -277,6 +302,77 @@ class RunAutomaticSearchActionTest extends TestCase
         $lastCycle = $state->fresh()->last_cycle;
         $this->assertSame('discarded', $lastCycle['assets'][0]['status']);
         $this->assertSame('riesgo alto', $lastCycle['assets'][0]['reason']);
+
+        // The strategy passed Discovery but failed VALIDATION specifically
+        // on maximumDrawdown — the diagnostic must show both stages and the
+        // exact VALIDATION metrics StrategyEvaluator already computed for it.
+        $strategies = $lastCycle['assets'][0]['strategies'];
+        $this->assertCount(1, $strategies);
+        $this->assertSame('Volatile', $strategies[0]['name']);
+        $this->assertSame('discarded_in_validation', $strategies[0]['status']);
+        $this->assertTrue($strategies[0]['discovery']['passed']);
+        $this->assertNotNull($strategies[0]['validation']);
+        $this->assertFalse($strategies[0]['validation']['passed']);
+        $this->assertSame(['maximumDrawdown'], $strategies[0]['validation']['failedCriteria']);
+        $this->assertSame(1, $strategies[0]['validation']['metrics']['totalTrades']);
+    }
+
+    /**
+     * Two candidates that both pass VALIDATION with tied metrics dominate
+     * neither each other, so {@see StrategySelector} deliberately selects
+     * none (see its own docblock) — the diagnostic breakdown must reflect
+     * that as "validated_not_selected" for both, and this diagnostic layer
+     * must not change that outcome: still no ActiveStrategy is created and
+     * the cycle still reports 0 candidates found, exactly as before this
+     * per-strategy detail existed.
+     */
+    public function test_records_validated_not_selected_status_for_tied_survivors_without_changing_the_decision(): void
+    {
+        // TRAIN: steady rise, both strategies clear every criterion.
+        $trainCloses = ['100', '101', '102', '103', '104', '105', '106', '107'];
+        // VALIDATION: identical for both strategies, and both use the exact
+        // same signal timing, so their metrics tie exactly.
+        $validationCloses = ['300', '301', '302', '303', '304', '305', '306', '307'];
+        $candles = $this->candles([...$trainCloses, ...$validationCloses]);
+
+        $provider = new RunAutomaticSearchActionFakeMarketDataProvider($candles);
+        $pipeline = new StrategyPipeline(
+            evaluator: new StrategyEvaluator,
+            selector: new StrategySelector,
+            split: new TrainValidationSplit(50),
+            minimumTrades: 1,
+            minimumWinRate: '50',
+            maximumDrawdown: '100',
+            minimumProfitLoss: '0',
+        );
+        $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
+        $scanner = new OpportunityScanner(new RunAutomaticSearchActionFakeUniverseProvider(['BTCUSDT']), $provider);
+        $signals = [2 => SignalType::BUY, 4 => SignalType::SELL];
+        $strategies = [
+            'One' => new RunAutomaticSearchActionPositionalStrategy($signals),
+            'Two' => new RunAutomaticSearchActionPositionalStrategy($signals),
+        ];
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner, $strategies);
+
+        $state = AutomaticSearchState::factory()->create();
+
+        $action($state);
+
+        $this->assertSame(0, ActiveStrategy::query()->count());
+
+        $lastCycle = $state->fresh()->last_cycle;
+        $this->assertSame(0, $lastCycle['candidatesFound']);
+        $this->assertSame('discarded', $lastCycle['assets'][0]['status']);
+
+        $byName = [];
+        foreach ($lastCycle['assets'][0]['strategies'] as $strategy) {
+            $byName[$strategy['name']] = $strategy;
+        }
+
+        $this->assertSame('validated_not_selected', $byName['One']['status']);
+        $this->assertSame('validated_not_selected', $byName['Two']['status']);
+        $this->assertTrue($byName['One']['validation']['passed']);
+        $this->assertTrue($byName['Two']['validation']['passed']);
     }
 
     /**

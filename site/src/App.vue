@@ -195,6 +195,55 @@ function claseEstadoActivo(status) {
   return 'text-neutral-400'
 }
 
+// Símbolo del activo actualmente expandido en "Mercado analizado (último
+// ciclo)", para mostrar el detalle por estrategia (ver
+// RunAutomaticSearchAction::strategyDiagnostics). null = nada expandido.
+const activoExpandido = ref(null)
+
+function alternarActivoExpandido(symbol) {
+  activoExpandido.value = activoExpandido.value === symbol ? null : symbol
+}
+
+// Traduce el status de una estrategia dentro de un activo (ver
+// RunAutomaticSearchAction::strategyStatus) a icono + etiqueta corta.
+// Puramente informativo: no es una señal BUY/SELL.
+function textoEstadoEstrategia(status) {
+  switch (status) {
+    case 'selected':
+      return { icono: '✅', texto: 'Seleccionada' }
+    case 'validated_not_selected':
+      return { icono: '➖', texto: 'Validada, sin ganador claro' }
+    case 'discarded_in_validation':
+      return { icono: '❌', texto: 'Descartada en Validation' }
+    default:
+      return { icono: '❌', texto: 'Descartada en Discovery' }
+  }
+}
+
+// Etiqueta corta y compacta con el motivo/métrica más relevante para
+// explicar el resultado de una estrategia, reutilizando exclusivamente las
+// métricas que ya trae `strategy.discovery.metrics` / `strategy.validation.metrics`
+// (ver StrategyEvaluation). No recalcula nada.
+function metricaClaveEstrategia(strategy) {
+  const etapa = strategy.validation ?? strategy.discovery
+  const metricas = etapa.metrics
+
+  const criterio = etapa.failedCriteria[0]
+
+  switch (criterio) {
+    case 'minimumTrades':
+      return `${metricas.totalTrades} trade(s)`
+    case 'minimumWinRate':
+      return `win rate ${formatoPorcentaje(metricas.winRate)}`
+    case 'maximumDrawdown':
+      return `drawdown ${formatoPorcentaje(metricas.maxDrawdownPercentage)}`
+    case 'minimumProfitLoss':
+      return `P/L ${formatoPL(metricas.profitLoss)}`
+    default:
+      return `win rate ${formatoPorcentaje(metricas.winRate)} · P/L ${formatoPL(metricas.profitLoss)}`
+  }
+}
+
 async function cargarSaldoBinance() {
   estadoSaldo.value = 'loading'
 
@@ -880,13 +929,43 @@ onUnmounted(() => {
               <li
                 v-for="activo in automaticoSeleccion.lastCycle.assets"
                 :key="activo.symbol"
-                class="flex items-center justify-between rounded-lg bg-neutral-900/60 px-3 py-2"
+                class="rounded-lg bg-neutral-900/60 px-3 py-2"
               >
-                <span class="font-medium">{{ activo.symbol }}</span>
-                <span class="text-right">
-                  <span :class="claseEstadoActivo(activo.status)">{{ textoEstadoActivo(activo) }}</span>
-                  <span class="block text-xs text-neutral-500">{{ formatoHora(activo.evaluatedAt) }}</span>
-                </span>
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between text-left"
+                  :disabled="!activo.strategies?.length"
+                  @click="alternarActivoExpandido(activo.symbol)"
+                >
+                  <span class="font-medium">
+                    <span v-if="activo.strategies?.length" class="text-neutral-500 mr-1">
+                      {{ activoExpandido === activo.symbol ? '▾' : '▸' }}
+                    </span>
+                    {{ activo.symbol }}
+                  </span>
+                  <span class="text-right">
+                    <span :class="claseEstadoActivo(activo.status)">{{ textoEstadoActivo(activo) }}</span>
+                    <span class="block text-xs text-neutral-500">{{ formatoHora(activo.evaluatedAt) }}</span>
+                  </span>
+                </button>
+
+                <ul
+                  v-if="activoExpandido === activo.symbol && activo.strategies?.length"
+                  class="mt-2 flex flex-col gap-1 border-t border-neutral-800 pt-2"
+                >
+                  <li
+                    v-for="estrategia in activo.strategies"
+                    :key="estrategia.name"
+                    class="flex items-center justify-between text-xs"
+                  >
+                    <span class="text-neutral-300">{{ estrategia.name }}</span>
+                    <span class="text-neutral-400">
+                      {{ textoEstadoEstrategia(estrategia.status).icono }}
+                      {{ textoEstadoEstrategia(estrategia.status).texto }}
+                      · {{ metricaClaveEstrategia(estrategia) }}
+                    </span>
+                  </li>
+                </ul>
               </li>
             </ul>
 

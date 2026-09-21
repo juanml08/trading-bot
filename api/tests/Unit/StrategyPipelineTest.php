@@ -76,6 +76,23 @@ class StrategyPipelineTest extends TestCase
         // Only A reached the Selector (alone), so A is selected.
         $this->assertNotNull($result->selectedCandidate);
         $this->assertSame('A', $result->selectedCandidate->strategyName);
+
+        // discoveryResults covers every strategy handed to the pipeline —
+        // including B, which never reached VALIDATION — with the exact TRAIN
+        // evaluation each one produced.
+        $this->assertSame(['A', 'B', 'C'], array_keys($result->discoveryResults));
+
+        $this->assertTrue($result->discoveryResults['A']->passed);
+        $this->assertSame([], $result->discoveryResults['A']->failedCriteria);
+
+        $this->assertFalse($result->discoveryResults['B']->passed);
+        $this->assertSame(['minimumTrades', 'minimumWinRate'], $result->discoveryResults['B']->failedCriteria);
+        $this->assertSame(0, $result->discoveryResults['B']->trainEvaluation->totalTrades);
+
+        $this->assertTrue($result->discoveryResults['C']->passed);
+        $this->assertSame([], $result->discoveryResults['C']->failedCriteria);
+        // C's TRAIN evaluation is the same profitable one its StrategyCandidate carries.
+        $this->assertSame($byStrategyName['C']->candidate->evaluation, $result->discoveryResults['C']->trainEvaluation);
     }
 
     public function test_no_strategies_yields_no_validation_results_and_no_selection(): void
