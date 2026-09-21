@@ -52,7 +52,7 @@ return [
     | universe to a small set of candidates worth handing to the Strategy
     | Pipeline for evaluation (see App\Opportunity\OpportunityScanner).
     |
-    | `limit` is how many candidates it returns at most (5 by default, as
+    | `limit` is how many candidates it returns at most (10 by default, as
     | required by the current product scope). `quote_asset` restricts the
     | universe to pairs quoted in this asset (e.g. only *USDT pairs).
     | `timeframe`/`lookback_candles` control how much recent OHLCV data is
@@ -66,7 +66,7 @@ return [
     */
 
     'opportunity_scanner' => [
-        'limit' => env('OPPORTUNITY_SCANNER_LIMIT', 5),
+        'limit' => env('OPPORTUNITY_SCANNER_LIMIT', 10),
         'quote_asset' => env('OPPORTUNITY_SCANNER_QUOTE_ASSET', 'USDT'),
         'timeframe' => env('OPPORTUNITY_SCANNER_TIMEFRAME', '1h'),
         'lookback_candles' => env('OPPORTUNITY_SCANNER_LOOKBACK_CANDLES', 24),

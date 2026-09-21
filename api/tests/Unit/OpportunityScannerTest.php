@@ -13,9 +13,19 @@ use Tests\TestCase;
 
 class OpportunityScannerTest extends TestCase
 {
-    public function test_the_default_limit_is_five(): void
+    public function test_the_default_limit_is_ten(): void
     {
-        $this->assertSame(5, config('trading.opportunity_scanner.limit'));
+        $this->assertSame(10, config('trading.opportunity_scanner.limit'));
+    }
+
+    public function test_it_returns_at_most_ten_candidates_using_the_default_limit(): void
+    {
+        $symbols = array_map(fn (int $i): string => "SYM{$i}USDT", range(1, 15));
+        $scanner = $this->scanner($symbols);
+
+        $candidates = $scanner->scan();
+
+        $this->assertCount(10, $candidates);
     }
 
     public function test_it_returns_at_most_the_configured_limit(): void
