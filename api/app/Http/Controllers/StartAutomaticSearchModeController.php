@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Strategy\ActivateStrategyAction;
+use App\Actions\Strategy\ActivateTradingCycleAction;
 use App\Actions\Strategy\RunAutomaticSearchAction;
 use App\Actions\Strategy\SearchStrategiesAction;
 use App\Actions\Strategy\StartAutomaticModeAction;
@@ -55,6 +56,10 @@ class StartAutomaticSearchModeController extends Controller
             minimumWinRate: config('trading.discovery.minimum_win_rate'),
             maximumDrawdown: config('trading.discovery.maximum_drawdown'),
             minimumProfitLoss: config('trading.discovery.minimum_profit_loss'),
+            validationMinimumTrades: config('trading.validation.minimum_trades'),
+            validationMinimumWinRate: config('trading.validation.minimum_win_rate'),
+            validationMaximumDrawdown: config('trading.validation.maximum_drawdown'),
+            validationMinimumProfitLoss: config('trading.validation.minimum_profit_loss'),
         );
 
         $runner = new MarketDataStrategyPipelineRunner($marketDataProvider, $pipeline);
@@ -63,7 +68,7 @@ class StartAutomaticSearchModeController extends Controller
         $universeProvider = new BinanceSymbolUniverseProvider(baseUrl: config('services.binance.base_url'));
         $scanner = new OpportunityScanner($universeProvider, $marketDataProvider);
 
-        $runAction = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner);
+        $runAction = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner);
 
         return new StartAutomaticSearchModeAction($runAction);
     }

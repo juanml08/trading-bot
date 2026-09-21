@@ -118,4 +118,14 @@ class TradingAccount extends Model
     {
         return $this->hasMany(AutomaticSearchCycle::class, 'account_id');
     }
+
+    /**
+     * Get the active trading cycles for the trading account.
+     *
+     * @return HasMany<ActiveTradingCycle, $this>
+     */
+    public function activeTradingCycles(): HasMany
+    {
+        return $this->hasMany(ActiveTradingCycle::class, 'account_id');
+    }
 }

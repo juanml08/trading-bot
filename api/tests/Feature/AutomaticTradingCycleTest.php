@@ -6,9 +6,12 @@ use App\Automation\AutomaticTradingCycle;
 use App\MarketData\Candle;
 use App\MarketData\Timeframe;
 use App\Models\ActiveStrategy;
+use App\Models\ActiveTradingCycle;
+use App\Models\Asset;
 use App\Models\BotEvent;
 use App\Models\Strategy;
 use App\Models\Trade;
+use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -98,6 +101,110 @@ class AutomaticTradingCycleTest extends TestCase
         $this->assertDatabaseHas('bot_events', ['event_type' => 'position_opened']);
         $this->assertDatabaseHas('bot_events', ['event_type' => 'position_closed']);
         $this->assertGreaterThanOrEqual(2, BotEvent::query()->where('event_type', 'candle_processed')->count());
+    }
+
+    /**
+     * Fase 4: a BUY that actually opens a position moves the linked,
+     * still-HOLD ActiveTradingCycle to POSITION_OPEN — see
+     * AutomaticTradingCycle::handleBuy().
+     */
+    public function test_a_buy_signal_moves_a_linked_hold_cycle_to_position_open(): void
+    {
+        $active = $this->activeStrategy();
+        $cycle = $this->linkedCycle($active);
+
+        $this->process($active, $this->risingCandles());
+
+        $this->assertSame(ActiveTradingCycleState::PositionOpen, $cycle->fresh()->state);
+    }
+
+    /**
+     * Fase 4: a SELL that actually closes a position moves the linked
+     * POSITION_OPEN cycle to CLOSED, and logs a distinct `cycle_closed`
+     * BotEvent (separate from `position_closed`) — see
+     * AutomaticTradingCycle::handleSell().
+     */
+    public function test_a_sell_signal_moves_a_linked_position_open_cycle_to_closed(): void
+    {
+        $active = $this->activeStrategy();
+        $cycle = $this->linkedCycle($active);
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+
+        $this->assertSame(ActiveTradingCycleState::Closed, $cycle->fresh()->state);
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'cycle_closed', 'active_trading_cycle_id' => $cycle->id]);
+    }
+
+    /**
+     * Fase 4.5 audit finding: closing a cycle via a natural SELL must also
+     * stop its ActiveStrategy — otherwise it keeps running for a cycle that
+     * no longer exists (same bug class as ExpireHoldCyclesActionTest's
+     * equivalent coverage).
+     */
+    public function test_a_sell_that_closes_a_cycle_also_stops_its_active_strategy(): void
+    {
+        $active = $this->activeStrategy();
+        $this->linkedCycle($active);
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+
+        $fresh = $active->fresh();
+        $this->assertSame(ActiveStrategy::STATUS_STOPPED, $fresh->status);
+        $this->assertNotNull($fresh->stopped_at);
+    }
+
+    /**
+     * Every BotEvent recorded while processing a candle for an ActiveStrategy
+     * with a linked cycle is tagged with that cycle's id, so its history can
+     * be read back precisely (see the `active_trading_cycle_id` migration).
+     */
+    public function test_events_recorded_while_processing_are_tagged_with_the_linked_cycle(): void
+    {
+        $active = $this->activeStrategy();
+        $cycle = $this->linkedCycle($active);
+
+        $this->process($active, $this->risingCandles());
+
+        $this->assertDatabaseHas('bot_events', [
+            'event_type' => 'position_opened',
+            'active_trading_cycle_id' => $cycle->id,
+        ]);
+        $this->assertSame(
+            0,
+            BotEvent::query()->where('event_type', 'position_opened')->whereNull('active_trading_cycle_id')->count(),
+        );
+    }
+
+    /**
+     * Manual mode applies a strategy without ever creating an
+     * ActiveTradingCycle (see ActivateStrategyAction vs
+     * ActivateTradingCycleAction) — processing it must behave exactly as
+     * before, with no cycle to update and no cycle id on its events.
+     */
+    public function test_an_active_strategy_with_no_linked_cycle_processes_exactly_as_before(): void
+    {
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+
+        $trade = Trade::query()->sole();
+        $this->assertSame('closed', $trade->status);
+        $this->assertSame(0, ActiveTradingCycle::query()->count());
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'position_opened', 'active_trading_cycle_id' => null]);
+    }
+
+    private function linkedCycle(ActiveStrategy $active): ActiveTradingCycle
+    {
+        return ActiveTradingCycle::factory()->create([
+            'account_id' => $active->account_id,
+            'asset_id' => Asset::factory()->create(['symbol' => $active->symbol])->id,
+            'strategy_id' => $active->strategy_id,
+            'active_strategy_id' => $active->id,
+            'state' => ActiveTradingCycleState::Hold,
+        ]);
     }
 
     private function activeStrategy(): ActiveStrategy

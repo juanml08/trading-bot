@@ -129,6 +129,10 @@ class StrategySearchCommand extends Command
             minimumWinRate: config('trading.discovery.minimum_win_rate'),
             maximumDrawdown: config('trading.discovery.maximum_drawdown'),
             minimumProfitLoss: config('trading.discovery.minimum_profit_loss'),
+            validationMinimumTrades: config('trading.validation.minimum_trades'),
+            validationMinimumWinRate: config('trading.validation.minimum_win_rate'),
+            validationMaximumDrawdown: config('trading.validation.maximum_drawdown'),
+            validationMinimumProfitLoss: config('trading.validation.minimum_profit_loss'),
         );
 
         $runner = new MarketDataStrategyPipelineRunner($marketDataProvider, $pipeline);

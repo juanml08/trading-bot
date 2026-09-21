@@ -214,6 +214,55 @@ class StrategyPipelineTest extends TestCase
         $this->assertSame([], $validationResult->failedCriteria);
     }
 
+    /**
+     * Fase 3: Discovery and Validation now use independent threshold sets
+     * (see StrategyPipeline's docblock). A strategy with exactly 2 winning
+     * trades on both TRAIN and VALIDATION comfortably clears a lenient
+     * Discovery bar (minimumTrades: 2) and reaches VALIDATION, but is then
+     * discarded there against a stricter Validation-only bar
+     * (minimumTrades: 4) that Discovery never even checked — proving the two
+     * stages read from genuinely separate thresholds, not the same object.
+     */
+    public function test_discovery_and_validation_apply_independent_thresholds(): void
+    {
+        // TRAIN and VALIDATION: identical 8-candle windows, each producing
+        // exactly 2 profitable trades (buy low/sell high twice).
+        $closes = ['100', '101', '102', '103', '104', '105', '106', '107'];
+        $candles = $this->candles([...$closes, ...$closes]);
+
+        $strategy = new PositionalSignalStrategy([1 => SignalType::BUY, 2 => SignalType::SELL, 4 => SignalType::BUY, 6 => SignalType::SELL]);
+
+        $pipeline = new StrategyPipeline(
+            evaluator: new StrategyEvaluator,
+            selector: new StrategySelector,
+            split: new TrainValidationSplit(50),
+            minimumTrades: 2,
+            minimumWinRate: '0',
+            maximumDrawdown: '100',
+            minimumProfitLoss: '0',
+            validationMinimumTrades: 4,
+            validationMinimumWinRate: '0',
+            validationMaximumDrawdown: '100',
+            validationMinimumProfitLoss: '0',
+        );
+
+        $result = $pipeline->run(['Strategy' => $strategy], $candles, '1000');
+
+        // Discovery (2 >= 2) passed, so VALIDATION ran and its result exists.
+        $this->assertTrue($result->discoveryResults['Strategy']->passed);
+        $this->assertSame(2, $result->discoveryResults['Strategy']->trainEvaluation->totalTrades);
+
+        // Validation (2 < 4) failed, specifically on minimumTrades — a bar
+        // Discovery's own (looser) minimumTrades never enforced.
+        $this->assertCount(1, $result->validationResults);
+        $validationResult = $result->validationResults[0];
+        $this->assertFalse($validationResult->passed);
+        $this->assertSame(['minimumTrades'], $validationResult->failedCriteria);
+        $this->assertSame(2, $validationResult->validationEvaluation->totalTrades);
+
+        $this->assertNull($result->selectedCandidate);
+    }
+
     private function pipeline(
         int $minimumTrades,
         string $minimumWinRate,

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import CyclesDashboard from './components/CyclesDashboard.vue'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
@@ -610,6 +611,8 @@ onUnmounted(() => {
           </button>
         </div>
       </section>
+
+    <CyclesDashboard />
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       <section class="lg:col-span-2 grid grid-cols-2 lg:grid-cols-4 gap-4">

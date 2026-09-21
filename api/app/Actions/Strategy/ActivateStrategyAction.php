@@ -11,12 +11,16 @@ use InvalidArgumentException;
 
 /**
  * Application-level use case for "Aplicar": makes an already-searched
- * strategy the active one for an account's automatic mode.
+ * strategy the active one for an account, for a given symbol.
  *
  * Applying a new strategy stops whatever the account currently has applied
- * or running first — only one strategy can be active per account at a time,
- * so a fresh "Aplicar" always replaces the previous one rather than
- * accumulating rows silently.
+ * or running for that same symbol first — only one strategy can be active
+ * per account+symbol at a time, so a fresh "Aplicar" for a symbol always
+ * replaces that symbol's previous strategy rather than accumulating rows
+ * silently. This is scoped to the symbol (not the whole account) so that
+ * {@see ActiveTradingCycle}s for different symbols can stay active
+ * simultaneously — see RunAutomaticSearchAction, which activates up to
+ * `MAX_ACTIVE_CYCLES` independent (symbol, strategy) cycles per search.
  */
 final readonly class ActivateStrategyAction
 {
@@ -35,6 +39,7 @@ final readonly class ActivateStrategyAction
         }
 
         $account->activeStrategies()
+            ->where('symbol', strtoupper($symbol))
             ->whereIn('status', [ActiveStrategy::STATUS_APPLIED, ActiveStrategy::STATUS_RUNNING])
             ->update(['status' => ActiveStrategy::STATUS_STOPPED, 'stopped_at' => CarbonImmutable::now()]);
 

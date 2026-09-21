@@ -37,4 +37,14 @@ class Asset extends Model
     {
         return $this->hasMany(Trade::class, 'asset_id');
     }
+
+    /**
+     * Get the active trading cycles for the asset.
+     *
+     * @return HasMany<ActiveTradingCycle, $this>
+     */
+    public function activeTradingCycles(): HasMany
+    {
+        return $this->hasMany(ActiveTradingCycle::class, 'asset_id');
+    }
 }

@@ -3,7 +3,7 @@
 namespace App\Actions\Strategy;
 
 use App\MarketData\Timeframe;
-use App\Models\ActiveStrategy;
+use App\Models\ActiveTradingCycle;
 use App\Models\AutomaticSearchCycle;
 use App\Models\AutomaticSearchCycleAsset;
 use App\Models\AutomaticSearchState;
@@ -24,12 +24,14 @@ use Throwable;
 /**
  * Application-level use case for one "Modo Automático" search attempt:
  * Opportunity Scanner → Buscar → Backtesting → Validation → Selector →
- * (Aplicar automáticamente sobre la primera oportunidad seleccionable | esperar
- * al próximo intento si ninguna lo es).
+ * Aplicar automáticamente sobre cada oportunidad seleccionable, hasta
+ * `MAX_ACTIVE_CYCLES` {@see ActiveTradingCycle}s activos simultáneos.
  *
- * Does nothing if the account already has a {@see ActiveStrategy} with
- * `status = running` — once a strategy is active, searching again is not
- * necessary (and would be wasted work) until that strategy stops.
+ * Does nothing if the account has no free slot — i.e. it already has
+ * `config('trading.active_cycles.max_active')` {@see ActiveTradingCycle}s in
+ * a non-terminal state (HOLD/POSITION_OPEN) — since activating another
+ * candidate is not possible (and evaluating one would be wasted work) until
+ * one of those cycles reaches a terminal state (CLOSED/EXPIRED).
  *
  * The Scanner only narrows down which symbols are worth evaluating — it
  * never decides BUY/SELL/HOLD or declares anything profitable. This still
@@ -87,7 +89,7 @@ final readonly class RunAutomaticSearchAction
      */
     public function __construct(
         private SearchStrategiesAction $searchAction,
-        private ActivateStrategyAction $activateAction,
+        private ActivateTradingCycleAction $activateCycleAction,
         private StartAutomaticModeAction $startAction,
         private OpportunityScanner $scanner,
         private ?array $strategies = null,
@@ -97,11 +99,7 @@ final readonly class RunAutomaticSearchAction
     {
         $account = $state->tradingAccount;
 
-        $hasRunningStrategy = $account->activeStrategies()
-            ->where('status', ActiveStrategy::STATUS_RUNNING)
-            ->exists();
-
-        if ($hasRunningStrategy) {
+        if ($this->availableSlots($account) <= 0) {
             return;
         }
 
@@ -163,8 +161,18 @@ final readonly class RunAutomaticSearchAction
         $strategies = $this->strategies ?? StrategyCatalog::all();
 
         $assetReviews = [];
+        $availableSlots = $this->availableSlots($account);
+        $activatedSymbol = null;
 
         foreach ($candidates as $candidate) {
+            // Once every free slot is filled, stop evaluating further
+            // candidates entirely — not just activating them — there is
+            // nothing left to do with the result of an evaluation that can't
+            // be acted on.
+            if ($availableSlots <= 0) {
+                break;
+            }
+
             $result = ($this->searchAction)(
                 $candidate->symbol,
                 $timeframe,
@@ -194,7 +202,14 @@ final readonly class RunAutomaticSearchAction
                 'message' => "Estrategia seleccionada automáticamente: {$result->selectedCandidate->strategyName} ({$candidate->symbol}).",
             ]);
 
-            ($this->activateAction)(
+            // No two non-terminal cycles for the same (account, asset): a
+            // symbol already HOLD/POSITION_OPEN from an earlier search does
+            // not get a second cycle, even if it is selectable again.
+            if ($this->hasActiveCycleForSymbol($account, $candidate->symbol)) {
+                continue;
+            }
+
+            $cycle = ($this->activateCycleAction)(
                 $account,
                 $result->selectedCandidate->strategyName,
                 $candidate->symbol,
@@ -205,6 +220,7 @@ final readonly class RunAutomaticSearchAction
 
             BotEvent::query()->create([
                 'account_id' => $account->id,
+                'active_trading_cycle_id' => $cycle->id,
                 'event_type' => 'strategy_applied_automatically',
                 'asset' => $candidate->symbol,
                 'message' => "Estrategia {$result->selectedCandidate->strategyName} aplicada automáticamente sobre {$candidate->symbol}.",
@@ -212,6 +228,11 @@ final readonly class RunAutomaticSearchAction
 
             ($this->startAction)($account);
 
+            $availableSlots--;
+            $activatedSymbol = $candidate->symbol;
+        }
+
+        if ($activatedSymbol !== null) {
             $cycle = $this->cycleSummary($now, $assetReviews);
 
             // History is persisted before `last_cycle` is written: if the
@@ -221,7 +242,7 @@ final readonly class RunAutomaticSearchAction
             $this->persistCycleHistory($account, $now, $cycle);
 
             $state->update([
-                'symbol' => $candidate->symbol,
+                'symbol' => $activatedSymbol,
                 'last_searched_at' => $now,
                 'next_search_at' => null,
                 'last_cycle' => $cycle,
@@ -233,6 +254,33 @@ final readonly class RunAutomaticSearchAction
         }
 
         $this->scheduleNextAttempt($state, $now, $assetReviews);
+    }
+
+    /**
+     * How many more {@see ActiveTradingCycle}s this account may activate
+     * right now: `config('trading.active_cycles.max_active')` minus its
+     * currently non-terminal (HOLD/POSITION_OPEN) cycles. Never negative.
+     */
+    private function availableSlots(TradingAccount $account): int
+    {
+        $maxActive = (int) config('trading.active_cycles.max_active');
+        $activeCount = $account->activeTradingCycles()->active()->count();
+
+        return max(0, $maxActive - $activeCount);
+    }
+
+    /**
+     * Whether the account already has a non-terminal cycle for this symbol
+     * — the application-level guard against two simultaneous cycles for the
+     * same (account, asset), since there is no DB constraint for it yet
+     * (see {@see ActiveTradingCycle}'s migration).
+     */
+    private function hasActiveCycleForSymbol(TradingAccount $account, string $symbol): bool
+    {
+        return $account->activeTradingCycles()
+            ->active()
+            ->whereHas('asset', fn ($query) => $query->where('symbol', strtoupper($symbol)))
+            ->exists();
     }
 
     /**

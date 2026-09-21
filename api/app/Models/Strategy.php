@@ -56,4 +56,14 @@ class Strategy extends Model
     {
         return $this->hasMany(StrategyRule::class, 'strategy_id');
     }
+
+    /**
+     * Get the active trading cycles using this strategy.
+     *
+     * @return HasMany<ActiveTradingCycle, $this>
+     */
+    public function activeTradingCycles(): HasMany
+    {
+        return $this->hasMany(ActiveTradingCycle::class, 'strategy_id');
+    }
 }

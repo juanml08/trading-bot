@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['account_id', 'event_type', 'asset', 'message', 'data'])]
+#[Fillable(['account_id', 'active_trading_cycle_id', 'event_type', 'asset', 'message', 'data'])]
 class BotEvent extends Model
 {
     /** @use HasFactory<BotEventFactory> */
@@ -36,5 +36,16 @@ class BotEvent extends Model
     public function tradingAccount(): BelongsTo
     {
         return $this->belongsTo(TradingAccount::class, 'account_id');
+    }
+
+    /**
+     * Get the active trading cycle this event happened during, if it was
+     * attributable to one (see the `active_trading_cycle_id` migration).
+     *
+     * @return BelongsTo<ActiveTradingCycle, $this>
+     */
+    public function activeTradingCycle(): BelongsTo
+    {
+        return $this->belongsTo(ActiveTradingCycle::class, 'active_trading_cycle_id');
     }
 }

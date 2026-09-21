@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use App\Actions\Strategy\ExpireHoldCyclesAction;
+use App\Actions\Strategy\StopTradingCycleAction;
+use App\Automation\AutomaticTradingCycle;
 use App\Console\Commands\ProcessAutomaticTradingCommand;
 use App\MarketData\Timeframe;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Database\Factories\ActiveStrategyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -82,6 +86,17 @@ class ActiveStrategy extends Model
     }
 
     /**
+     * Get the active trading cycles executed through this active strategy
+     * assignment, if any (see {@see ActiveTradingCycle}).
+     *
+     * @return HasMany<ActiveTradingCycle, $this>
+     */
+    public function activeTradingCycles(): HasMany
+    {
+        return $this->hasMany(ActiveTradingCycle::class, 'active_strategy_id');
+    }
+
+    /**
      * The next time a candle of this active strategy's timeframe is due to
      * be evaluated, or null if no candle has ever been evaluated yet (see
      * {@see ProcessAutomaticTradingCommand}).
@@ -93,5 +108,23 @@ class ActiveStrategy extends Model
         }
 
         return $this->last_evaluated_at->copy()->addMinutes(Timeframe::from($this->timeframe)->intervalInMinutes());
+    }
+
+    /**
+     * Stops this strategy assignment if it is currently `running`, a no-op
+     * otherwise. Every path that ends an {@see ActiveTradingCycle} this
+     * strategy is executing (a manual stop, expiration, or a natural
+     * POSITION_OPEN -> CLOSED via SELL) must call this — a cycle that has
+     * ended must never leave its strategy still `running`, evaluating new
+     * candles for a cycle that no longer exists (see
+     * {@see StopTradingCycleAction},
+     * {@see ExpireHoldCyclesAction}, and
+     * {@see AutomaticTradingCycle::handleSell()}).
+     */
+    public function stopIfRunning(): void
+    {
+        if ($this->status === self::STATUS_RUNNING) {
+            $this->update(['status' => self::STATUS_STOPPED, 'stopped_at' => CarbonImmutable::now()]);
+        }
     }
 }

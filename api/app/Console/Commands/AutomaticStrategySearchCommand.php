@@ -3,12 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Actions\Strategy\ActivateStrategyAction;
+use App\Actions\Strategy\ActivateTradingCycleAction;
 use App\Actions\Strategy\RunAutomaticSearchAction;
 use App\Actions\Strategy\SearchStrategiesAction;
 use App\Actions\Strategy\StartAutomaticModeAction;
 use App\MarketData\BinanceMarketDataProvider;
 use App\MarketData\BinanceSymbolUniverseProvider;
-use App\Models\ActiveStrategy;
+use App\Models\ActiveTradingCycle;
 use App\Models\AutomaticSearchState;
 use App\Models\BotEvent;
 use App\Opportunity\OpportunityScanner;
@@ -30,9 +31,10 @@ use Throwable;
  * attempts a search once it is due — either no attempt has run yet, or the
  * configured retry interval has elapsed since the last one — and
  * {@see RunAutomaticSearchAction} itself skips the attempt entirely if the
- * account already has a running {@see ActiveStrategy}. This is
- * what keeps the search from re-running on every tick, and from ever running
- * at all while a strategy is already active.
+ * account has no free {@see ActiveTradingCycle} slot (see
+ * `config('trading.active_cycles.max_active')`). This is what keeps the
+ * search from re-running on every tick, and from ever running at all while
+ * the account is already at its active-cycle limit.
  *
  * A failure attempting one account's search is logged as a {@see BotEvent}
  * and does not stop the others from being processed.
@@ -86,6 +88,10 @@ class AutomaticStrategySearchCommand extends Command
             minimumWinRate: config('trading.discovery.minimum_win_rate'),
             maximumDrawdown: config('trading.discovery.maximum_drawdown'),
             minimumProfitLoss: config('trading.discovery.minimum_profit_loss'),
+            validationMinimumTrades: config('trading.validation.minimum_trades'),
+            validationMinimumWinRate: config('trading.validation.minimum_win_rate'),
+            validationMaximumDrawdown: config('trading.validation.maximum_drawdown'),
+            validationMinimumProfitLoss: config('trading.validation.minimum_profit_loss'),
         );
 
         $runner = new MarketDataStrategyPipelineRunner($marketDataProvider, $pipeline);
@@ -94,6 +100,6 @@ class AutomaticStrategySearchCommand extends Command
         $universeProvider = new BinanceSymbolUniverseProvider(baseUrl: config('services.binance.base_url'));
         $scanner = new OpportunityScanner($universeProvider, $marketDataProvider);
 
-        return new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner);
+        return new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner);
     }
 }

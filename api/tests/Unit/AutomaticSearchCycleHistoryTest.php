@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Actions\Strategy\ActivateStrategyAction;
+use App\Actions\Strategy\ActivateTradingCycleAction;
 use App\Actions\Strategy\RunAutomaticSearchAction;
 use App\Actions\Strategy\SearchStrategiesAction;
 use App\Actions\Strategy\StartAutomaticModeAction;
@@ -124,7 +125,7 @@ class AutomaticSearchCycleHistoryTest extends TestCase
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new AutomaticSearchCycleHistoryFakeUniverseProvider(['BTCUSDT']), $provider);
         $strategy = new AutomaticSearchCycleHistoryPositionalStrategy([2 => SignalType::BUY, 4 => SignalType::SELL]);
-        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner, ['Volatile' => $strategy]);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, ['Volatile' => $strategy]);
 
         $state = AutomaticSearchState::factory()->create();
 
@@ -224,7 +225,7 @@ class AutomaticSearchCycleHistoryTest extends TestCase
         );
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new AutomaticSearchCycleHistoryThrowingUniverseProvider, $provider);
-        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner);
 
         try {
             $action($state);
@@ -429,7 +430,7 @@ class AutomaticSearchCycleHistoryTest extends TestCase
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new AutomaticSearchCycleHistoryFakeUniverseProvider($symbols), $provider);
 
-        return new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner, $strategies);
+        return new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, $strategies);
     }
 
     /**

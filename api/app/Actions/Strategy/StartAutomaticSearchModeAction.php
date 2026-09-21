@@ -15,7 +15,7 @@ use App\Models\TradingAccount;
  *
  * Idempotent: calling it again while already running does not re-announce
  * "Modo automático iniciado", it just runs another search attempt (a no-op
- * if the account already has a running strategy).
+ * if the account has no free active-cycle slot — see RunAutomaticSearchAction).
  */
 final readonly class StartAutomaticSearchModeAction
 {

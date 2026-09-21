@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\ActiveStrategy;
+use App\Models\ActiveTradingCycle;
+use App\Models\Asset;
 use App\Models\AutomaticSearchState;
 use App\Models\BotEvent;
 use App\Models\TradingAccount;
+use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -44,11 +46,18 @@ class StartAutomaticSearchModeControllerTest extends TestCase
         $this->assertContains('automatic_search_started', $eventTypes);
     }
 
-    public function test_starting_when_a_running_strategy_already_exists_does_not_search_again(): void
+    public function test_starting_when_the_account_has_no_free_active_cycle_slot_does_not_search_again(): void
     {
+        config(['trading.active_cycles.max_active' => 5]);
         $this->fakeBinance();
         $account = TradingAccount::factory()->create();
-        ActiveStrategy::factory()->create(['account_id' => $account->id, 'status' => ActiveStrategy::STATUS_RUNNING]);
+        for ($i = 0; $i < 5; $i++) {
+            ActiveTradingCycle::factory()->create([
+                'account_id' => $account->id,
+                'asset_id' => Asset::factory()->create(['symbol' => "PRE{$i}USDT"])->id,
+                'state' => ActiveTradingCycleState::Hold,
+            ]);
+        }
         $this->actingAsAccount($account);
 
         $response = $this->postJson('/api/automatic-search/start', $this->payload());

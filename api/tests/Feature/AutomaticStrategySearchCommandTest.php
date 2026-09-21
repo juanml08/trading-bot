@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\ActiveStrategy;
+use App\Models\ActiveTradingCycle;
+use App\Models\Asset;
 use App\Models\AutomaticSearchState;
 use App\Models\BotEvent;
+use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -24,11 +27,18 @@ class AutomaticStrategySearchCommandTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_it_does_not_search_when_the_account_already_has_a_running_strategy(): void
+    public function test_it_does_not_search_when_the_account_has_no_free_active_cycle_slot(): void
     {
+        config(['trading.active_cycles.max_active' => 5]);
         Http::fake();
         $state = AutomaticSearchState::factory()->create(['status' => AutomaticSearchState::STATUS_RUNNING]);
-        ActiveStrategy::factory()->create(['account_id' => $state->account_id, 'status' => ActiveStrategy::STATUS_RUNNING]);
+        for ($i = 0; $i < 5; $i++) {
+            ActiveTradingCycle::factory()->create([
+                'account_id' => $state->account_id,
+                'asset_id' => Asset::factory()->create(['symbol' => "PRE{$i}USDT"])->id,
+                'state' => ActiveTradingCycleState::Hold,
+            ]);
+        }
 
         $this->artisan('automatic:search')->assertExitCode(0);
 

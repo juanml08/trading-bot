@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Actions\Strategy\ActivateStrategyAction;
+use App\Actions\Strategy\ActivateTradingCycleAction;
 use App\Actions\Strategy\RunAutomaticSearchAction;
 use App\Actions\Strategy\SearchStrategiesAction;
 use App\Actions\Strategy\StartAutomaticModeAction;
@@ -12,6 +13,8 @@ use App\MarketData\MarketDataProvider;
 use App\MarketData\SymbolUniverseProvider;
 use App\MarketData\Timeframe;
 use App\Models\ActiveStrategy;
+use App\Models\ActiveTradingCycle;
+use App\Models\Asset;
 use App\Models\AutomaticSearchState;
 use App\Models\BotEvent;
 use App\Models\Strategy as StrategyModel;
@@ -25,6 +28,7 @@ use App\Strategy\StrategyEvaluator;
 use App\Strategy\StrategyPipeline;
 use App\Strategy\StrategySelector;
 use App\Strategy\TrainValidationSplit;
+use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
@@ -34,15 +38,24 @@ class RunAutomaticSearchActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_does_nothing_when_the_account_already_has_a_running_strategy(): void
+    public function test_it_does_nothing_when_the_account_has_no_free_active_cycle_slot(): void
     {
-        $active = ActiveStrategy::factory()->create(['status' => ActiveStrategy::STATUS_RUNNING]);
-        $state = AutomaticSearchState::factory()->create(['account_id' => $active->account_id]);
+        config(['trading.active_cycles.max_active' => 5]);
+
+        $state = AutomaticSearchState::factory()->create();
+        for ($i = 0; $i < 5; $i++) {
+            ActiveTradingCycle::factory()->create([
+                'account_id' => $state->account_id,
+                'asset_id' => Asset::factory()->create(['symbol' => "PRE{$i}USDT"])->id,
+                'state' => ActiveTradingCycleState::Hold,
+            ]);
+        }
 
         ($this->action(['Idle' => new RunAutomaticSearchActionIdleStrategy]))($state);
 
         $this->assertSame(0, BotEvent::query()->count());
-        $this->assertSame(1, ActiveStrategy::query()->count());
+        $this->assertSame(0, ActiveStrategy::query()->count());
+        $this->assertSame(5, ActiveTradingCycle::query()->count());
     }
 
     public function test_a_selectable_candidate_is_applied_and_started_automatically(): void
@@ -293,7 +306,7 @@ class RunAutomaticSearchActionTest extends TestCase
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new RunAutomaticSearchActionFakeUniverseProvider(['BTCUSDT']), $provider);
         $strategy = new RunAutomaticSearchActionPositionalStrategy([2 => SignalType::BUY, 4 => SignalType::SELL]);
-        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner, ['Volatile' => $strategy]);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, ['Volatile' => $strategy]);
 
         $state = AutomaticSearchState::factory()->create();
 
@@ -352,7 +365,7 @@ class RunAutomaticSearchActionTest extends TestCase
             'One' => new RunAutomaticSearchActionPositionalStrategy($signals),
             'Two' => new RunAutomaticSearchActionPositionalStrategy($signals),
         ];
-        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner, $strategies);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, $strategies);
 
         $state = AutomaticSearchState::factory()->create();
 
@@ -415,7 +428,7 @@ class RunAutomaticSearchActionTest extends TestCase
         );
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new RunAutomaticSearchActionFakeUniverseProvider(['BTCUSDT']), $provider);
-        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner);
 
         $action($state);
 
@@ -448,7 +461,7 @@ class RunAutomaticSearchActionTest extends TestCase
         );
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new RunAutomaticSearchActionThrowingUniverseProvider, $provider);
-        $action = new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner);
 
         try {
             $action($state);
@@ -487,7 +500,7 @@ class RunAutomaticSearchActionTest extends TestCase
         $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($provider, $pipeline));
         $scanner = new OpportunityScanner(new RunAutomaticSearchActionFakeUniverseProvider($symbols), $provider);
 
-        return new RunAutomaticSearchAction($searchAction, new ActivateStrategyAction, new StartAutomaticModeAction, $scanner, $strategies);
+        return new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, $strategies);
     }
 
     /**

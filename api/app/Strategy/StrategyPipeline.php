@@ -37,10 +37,30 @@ use App\MarketData\Candle;
  * build {@see DiscoveryResult} for every strategy — including the ones
  * `discover()` did not let through — for the same reason: it is the only
  * place that already knows, per criterion, why a strategy did not qualify.
+ *
+ * Fase 3 separates Discovery's and Validation's thresholds: the
+ * `$minimumTrades`/`$minimumWinRate`/`$maximumDrawdown`/`$minimumProfitLoss`
+ * constructor arguments drive TRAIN Discovery only (via `$discovery` and
+ * `failedCriteria()`, unchanged), while the `$validationMinimum*`/
+ * `$validationMaximum*` arguments — resolved once in the constructor,
+ * falling back to the Discovery values when omitted so existing callers that
+ * only care about a single threshold set keep working unchanged — drive
+ * VALIDATION exclusively, via `validationFailedCriteria()`. Production
+ * callers pass both sets explicitly from `config('trading.discovery')` and
+ * `config('trading.validation')`, which are independent config sections, not
+ * the same object reused for both stages.
  */
 final readonly class StrategyPipeline
 {
     private StrategyDiscovery $discovery;
+
+    private int $validationMinimumTrades;
+
+    private string $validationMinimumWinRate;
+
+    private string $validationMaximumDrawdown;
+
+    private string $validationMinimumProfitLoss;
 
     public function __construct(
         private StrategyEvaluator $evaluator,
@@ -50,6 +70,10 @@ final readonly class StrategyPipeline
         private string $minimumWinRate,
         private string $maximumDrawdown,
         private string $minimumProfitLoss,
+        ?int $validationMinimumTrades = null,
+        ?string $validationMinimumWinRate = null,
+        ?string $validationMaximumDrawdown = null,
+        ?string $validationMinimumProfitLoss = null,
     ) {
         $this->discovery = new StrategyDiscovery(
             minimumTrades: $minimumTrades,
@@ -57,6 +81,11 @@ final readonly class StrategyPipeline
             maximumDrawdown: $maximumDrawdown,
             minimumProfitLoss: $minimumProfitLoss,
         );
+
+        $this->validationMinimumTrades = $validationMinimumTrades ?? $minimumTrades;
+        $this->validationMinimumWinRate = $validationMinimumWinRate ?? $minimumWinRate;
+        $this->validationMaximumDrawdown = $validationMaximumDrawdown ?? $maximumDrawdown;
+        $this->validationMinimumProfitLoss = $validationMinimumProfitLoss ?? $minimumProfitLoss;
     }
 
     /**
@@ -91,7 +120,7 @@ final readonly class StrategyPipeline
 
         foreach ($candidates as $name => $candidate) {
             $validationEvaluation = $this->evaluator->evaluate($strategies[$name], $windows['validation'], $initialCapital);
-            $failedCriteria = $this->failedCriteria($validationEvaluation);
+            $failedCriteria = $this->validationFailedCriteria($validationEvaluation);
             $passed = $failedCriteria === [];
 
             $validationResult = new ValidationResult(
@@ -120,21 +149,58 @@ final readonly class StrategyPipeline
      */
     private function failedCriteria(StrategyEvaluation $evaluation): array
     {
+        return $this->criteriaFailedAgainst(
+            $evaluation,
+            $this->minimumTrades,
+            $this->minimumWinRate,
+            $this->maximumDrawdown,
+            $this->minimumProfitLoss,
+        );
+    }
+
+    /**
+     * Same four comparisons as {@see failedCriteria()}, against VALIDATION's
+     * own (independent) thresholds — see this class's docblock for why these
+     * are not the same values.
+     *
+     * @return string[]
+     */
+    private function validationFailedCriteria(StrategyEvaluation $evaluation): array
+    {
+        return $this->criteriaFailedAgainst(
+            $evaluation,
+            $this->validationMinimumTrades,
+            $this->validationMinimumWinRate,
+            $this->validationMaximumDrawdown,
+            $this->validationMinimumProfitLoss,
+        );
+    }
+
+    /**
+     * @return string[]
+     */
+    private function criteriaFailedAgainst(
+        StrategyEvaluation $evaluation,
+        int $minimumTrades,
+        string $minimumWinRate,
+        string $maximumDrawdown,
+        string $minimumProfitLoss,
+    ): array {
         $failed = [];
 
-        if ($evaluation->totalTrades < $this->minimumTrades) {
+        if ($evaluation->totalTrades < $minimumTrades) {
             $failed[] = 'minimumTrades';
         }
 
-        if (bccomp($evaluation->winRate, $this->minimumWinRate, 18) < 0) {
+        if (bccomp($evaluation->winRate, $minimumWinRate, 18) < 0) {
             $failed[] = 'minimumWinRate';
         }
 
-        if (bccomp($evaluation->maxDrawdownPercentage, $this->maximumDrawdown, 18) > 0) {
+        if (bccomp($evaluation->maxDrawdownPercentage, $maximumDrawdown, 18) > 0) {
             $failed[] = 'maximumDrawdown';
         }
 
-        if (bccomp($evaluation->profitLoss, $this->minimumProfitLoss, 18) < 0) {
+        if (bccomp($evaluation->profitLoss, $minimumProfitLoss, 18) < 0) {
             $failed[] = 'minimumProfitLoss';
         }
 
