@@ -89,7 +89,15 @@ final class AutomaticTradingCycle
             return;
         }
 
-        $assessment = $this->riskManager->evaluate($signal, $active->capital, $active->capital);
+        $openTradesCount = Trade::query()->where('account_id', $active->account_id)->where('status', 'open')->count();
+
+        $assessment = $this->riskManager->evaluate(
+            $signal,
+            $active->capital,
+            $active->capital,
+            $active->tradingAccount->riskSetting,
+            $openTradesCount,
+        );
 
         if (! $assessment->allowed) {
             $this->recordEvent($active, $cycle, 'signal_rejected_by_risk', $asset->symbol, $assessment->reason);
@@ -97,7 +105,7 @@ final class AutomaticTradingCycle
             return;
         }
 
-        $execution = $this->executor->buy($asset->symbol, $currentPrice, $active->capital);
+        $execution = $this->executor->buy($asset->symbol, $currentPrice, $assessment->positionSize);
 
         $trade = Trade::query()->create([
             'account_id' => $active->account_id,

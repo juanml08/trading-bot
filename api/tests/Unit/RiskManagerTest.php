@@ -15,6 +15,7 @@ class RiskManagerTest extends TestCase
         $assessment = (new RiskManager)->evaluate($this->signal(SignalType::BUY), '20', '5');
 
         $this->assertTrue($assessment->allowed);
+        $this->assertSame('5', $assessment->positionSize);
     }
 
     public function test_sell_is_allowed_when_capital_is_sufficient(): void
@@ -51,6 +52,14 @@ class RiskManagerTest extends TestCase
         $assessment = (new RiskManager)->evaluate($this->signal(SignalType::BUY), '20', '25');
 
         $this->assertFalse($assessment->allowed);
+    }
+
+    public function test_without_a_risk_setting_the_full_requested_capital_is_used(): void
+    {
+        $assessment = (new RiskManager)->evaluate($this->signal(SignalType::BUY), '1000', '1000');
+
+        $this->assertTrue($assessment->allowed);
+        $this->assertSame('1000', $assessment->positionSize);
     }
 
     private function signal(SignalType $type): Signal

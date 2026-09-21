@@ -9,8 +9,10 @@ use App\Models\ActiveStrategy;
 use App\Models\ActiveTradingCycle;
 use App\Models\Asset;
 use App\Models\BotEvent;
+use App\Models\RiskSetting;
 use App\Models\Strategy;
 use App\Models\Trade;
+use App\Models\TradingAccount;
 use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -194,6 +196,105 @@ class AutomaticTradingCycleTest extends TestCase
         $this->assertSame('closed', $trade->status);
         $this->assertSame(0, ActiveTradingCycle::query()->count());
         $this->assertDatabaseHas('bot_events', ['event_type' => 'position_opened', 'active_trading_cycle_id' => null]);
+    }
+
+    /**
+     * Fase 5: without a RiskSetting configured for the account, the Risk
+     * Manager applies only the base capital checks — the full ActiveStrategy
+     * capital is used, exactly as before this phase.
+     */
+    public function test_a_buy_signal_uses_the_full_capital_when_the_account_has_no_risk_setting(): void
+    {
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+
+        $trade = Trade::query()->sole();
+        $this->assertSame('1000.00000000', $trade->capital_used);
+    }
+
+    /**
+     * Fase 5: with a RiskSetting configured, the capital actually deployed
+     * for the trade is capped by max_risk_per_trade (a percentage of the
+     * available capital), not the whole ActiveStrategy capital.
+     */
+    public function test_a_buy_signal_is_capped_by_the_account_risk_setting(): void
+    {
+        $active = $this->activeStrategy();
+        RiskSetting::factory()->create([
+            'account_id' => $active->account_id,
+            'max_risk_per_trade' => '1.0000',
+            'max_open_trades' => 5,
+            'max_capital_per_trade' => '1000.00000000',
+        ]);
+
+        $this->process($active, $this->risingCandles());
+
+        $trade = Trade::query()->sole();
+        $this->assertSame('10.00000000', $trade->capital_used);
+    }
+
+    /**
+     * Fase 5: a BUY is rejected once the account already has as many open
+     * trades as its RiskSetting's max_open_trades allows.
+     */
+    public function test_a_buy_signal_is_rejected_when_max_open_trades_is_already_reached(): void
+    {
+        $active = $this->activeStrategy();
+        RiskSetting::factory()->create([
+            'account_id' => $active->account_id,
+            'max_open_trades' => 1,
+        ]);
+        Trade::factory()->create([
+            'account_id' => $active->account_id,
+            'asset_id' => Asset::factory()->create(['symbol' => 'ETHUSDT']),
+            'status' => 'open',
+        ]);
+
+        $this->process($active, $this->risingCandles());
+
+        $this->assertSame(1, Trade::query()->count());
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'signal_rejected_by_risk']);
+    }
+
+    /**
+     * Fase 5 multi-account isolation: a Risk Manager evaluation must never
+     * apply another account's RiskSetting.
+     */
+    public function test_a_buy_signal_does_not_use_another_accounts_risk_setting(): void
+    {
+        $active = $this->activeStrategy();
+        $otherAccount = TradingAccount::factory()->create();
+        RiskSetting::factory()->create([
+            'account_id' => $otherAccount->id,
+            'max_risk_per_trade' => '0.0001',
+        ]);
+
+        $this->process($active, $this->risingCandles());
+
+        $trade = Trade::query()->sole();
+        $this->assertSame('1000.00000000', $trade->capital_used);
+    }
+
+    /**
+     * Fase 5: exposure is derived from currently open trades, not reserved
+     * separately — once a position closes, it no longer counts against
+     * max_open_trades and a later BUY can proceed again.
+     */
+    public function test_closing_a_position_frees_the_exposure_for_a_later_buy(): void
+    {
+        $active = $this->activeStrategy();
+        RiskSetting::factory()->create([
+            'account_id' => $active->account_id,
+            'max_open_trades' => 1,
+        ]);
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        $this->process($active, $this->risingCandles());
+
+        $this->assertSame(2, Trade::query()->count());
+        $this->assertSame(1, Trade::query()->where('status', 'open')->count());
     }
 
     private function linkedCycle(ActiveStrategy $active): ActiveTradingCycle
