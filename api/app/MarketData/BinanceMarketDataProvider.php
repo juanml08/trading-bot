@@ -42,10 +42,24 @@ final class BinanceMarketDataProvider implements MarketDataProvider
             );
         }
 
-        return array_map(
+        $candles = array_map(
             fn (array $kline) => $this->toCandle($symbol, $timeframe, $kline),
             $response->json(),
         );
+
+        // Binance includes the currently-forming candle in the response
+        // whenever its open time falls within [startTime, endTime] — which
+        // it does whenever $to is "now", the common case for both automatic
+        // search and automatic trading. That candle's close price keeps
+        // changing until the interval elapses, so evaluating it would mean
+        // trading on incomplete data. A candle only counts as closed once
+        // its close time (open + interval) is not after $to.
+        return array_values(array_filter(
+            $candles,
+            fn (Candle $candle): bool => $candle->timestamp
+                ->addMinutes($timeframe->intervalInMinutes())
+                ->lessThanOrEqualTo($to),
+        ));
     }
 
     /**

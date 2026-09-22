@@ -27,6 +27,9 @@ final class StrategyCatalog
             'SMA Fast' => new SimpleMovingAverageStrategy,
             'SMA Medium' => new SmaCrossoverStrategy(shortPeriod: 10, longPeriod: 20),
             'EMA Simple' => new EmaCrossoverStrategy,
+            'RSI' => new RelativeStrengthIndexStrategy,
+            'Bollinger Bands' => new BollingerBandsStrategy,
+            'Momentum' => new MomentumStrategy,
         ];
     }
 

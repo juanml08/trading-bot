@@ -92,7 +92,7 @@ return [
     'opportunity_scanner' => [
         'limit' => env('OPPORTUNITY_SCANNER_LIMIT', 10),
         'quote_asset' => env('OPPORTUNITY_SCANNER_QUOTE_ASSET', 'USDT'),
-        'timeframe' => env('OPPORTUNITY_SCANNER_TIMEFRAME', '1h'),
+        'timeframe' => env('OPPORTUNITY_SCANNER_TIMEFRAME', '30m'),
         'lookback_candles' => env('OPPORTUNITY_SCANNER_LOOKBACK_CANDLES', 24),
         'max_universe_size' => env('OPPORTUNITY_SCANNER_MAX_UNIVERSE_SIZE', 50),
     ],
