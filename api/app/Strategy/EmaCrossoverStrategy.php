@@ -14,12 +14,35 @@ use Carbon\CarbonImmutable;
  * simple EMA, not a strategy that waits for a full warm-up window before the
  * first value. Uses only closing prices. Knows nothing about brokers, risk,
  * capital, persistence, or execution.
+ *
+ * {@see StrategyEvaluator} calls `generate()` once per candle with an
+ * ever-growing prefix of the same candle sequence (`array_slice($candles, 0,
+ * $index + 1)`), so recomputing each EMA series from scratch every call is
+ * quadratic in the number of candles. This caches the last EMA series it
+ * computed and, when the new call is an append-only extension of that same
+ * sequence (checked cheaply via object identity on the previously-last
+ * candle — {@see Candle} is an immutable value object, and callers never
+ * clone candles between slices), extends it instead of recomputing. Any
+ * other call pattern (a shorter slice, a different candle sequence) falls
+ * back to a full recompute, so this is purely a performance cache — it
+ * never changes the result.
  */
 final class EmaCrossoverStrategy implements Strategy
 {
     private const int SHORT_PERIOD = 5;
 
     private const int LONG_PERIOD = 13;
+
+    /** @var string[] */
+    private array $shortEmaCache = [];
+
+    /** @var string[] */
+    private array $longEmaCache = [];
+
+    private ?Candle $cachedLastCandle = null;
+
+    /** @var array<int, array{0: string, 1: string}> multiplier/oneMinusMultiplier by period */
+    private array $multiplierCache = [];
 
     /**
      * @param  Candle[]  $candles  chronologically ordered (oldest first)
@@ -40,8 +63,16 @@ final class EmaCrossoverStrategy implements Strategy
             );
         }
 
-        $shortEma = $this->exponentialMovingAverages($candles, self::SHORT_PERIOD);
-        $longEma = $this->exponentialMovingAverages($candles, self::LONG_PERIOD);
+        $canExtendCache = $this->cachedLastCandle !== null
+            && count($this->shortEmaCache) <= $count
+            && $candles[count($this->shortEmaCache) - 1] === $this->cachedLastCandle;
+
+        $shortEma = $this->exponentialMovingAverages($candles, self::SHORT_PERIOD, $canExtendCache ? $this->shortEmaCache : []);
+        $longEma = $this->exponentialMovingAverages($candles, self::LONG_PERIOD, $canExtendCache ? $this->longEmaCache : []);
+
+        $this->shortEmaCache = $shortEma;
+        $this->longEmaCache = $longEma;
+        $this->cachedLastCandle = $candles[$count - 1];
 
         $previousShortEma = $shortEma[$count - 2];
         $previousLongEma = $longEma[$count - 2];
@@ -79,18 +110,33 @@ final class EmaCrossoverStrategy implements Strategy
 
     /**
      * EMA of `close` for every candle, seeded with the first candle's close.
+     * When $cached is a valid EMA series for a prefix of $candles, extends it
+     * instead of recomputing the whole thing.
      *
      * @param  Candle[]  $candles
+     * @param  string[]  $cached  EMA series already computed for the first
+     *                            count($cached) candles, or [] to recompute
+     *                            from scratch
      * @return string[] indexed the same as $candles
      */
-    private function exponentialMovingAverages(array $candles, int $period): array
+    private function exponentialMovingAverages(array $candles, int $period, array $cached): array
     {
-        $multiplier = bcdiv('2', (string) ($period + 1), 18);
-        $oneMinusMultiplier = bcsub('1', $multiplier, 18);
+        if (! isset($this->multiplierCache[$period])) {
+            $multiplier = bcdiv('2', (string) ($period + 1), 18);
+            $this->multiplierCache[$period] = [$multiplier, bcsub('1', $multiplier, 18)];
+        }
 
-        $emas = [$candles[0]->close];
+        [$multiplier, $oneMinusMultiplier] = $this->multiplierCache[$period];
 
-        for ($i = 1; $i < count($candles); $i++) {
+        if ($cached !== []) {
+            $emas = $cached;
+            $start = count($cached);
+        } else {
+            $emas = [$candles[0]->close];
+            $start = 1;
+        }
+
+        for ($i = $start; $i < count($candles); $i++) {
             $emas[$i] = bcadd(
                 bcmul($candles[$i]->close, $multiplier, 18),
                 bcmul($emas[$i - 1], $oneMinusMultiplier, 18),

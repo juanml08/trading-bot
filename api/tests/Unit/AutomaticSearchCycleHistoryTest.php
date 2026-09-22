@@ -368,6 +368,98 @@ class AutomaticSearchCycleHistoryTest extends TestCase
     }
 
     /**
+     * Regression coverage for the `Data too long for column
+     * 'validation_profit_factor'` failure reported in Fase 5.5: a profit
+     * factor with a two-digit integer part and 18 decimal digits (as
+     * {@see StrategyEvaluator} always produces via `bcdiv(..., 18)`) is 21+
+     * characters and must not be rejected or silently truncated by MySQL.
+     */
+    public function test_a_normal_profit_factor_persists_correctly(): void
+    {
+        $strategyRecord = AutomaticSearchCycleStrategy::factory()->create([
+            'train_profit_factor' => '1.500000000000000000',
+            'validation_profit_factor' => '0.833333333333333333',
+        ]);
+
+        $strategyRecord->refresh();
+
+        $this->assertSame('1.500000000000000000', $strategyRecord->train_profit_factor);
+        $this->assertSame('0.833333333333333333', $strategyRecord->validation_profit_factor);
+    }
+
+    public function test_a_profit_factor_above_ten_persists_correctly(): void
+    {
+        $strategyRecord = AutomaticSearchCycleStrategy::factory()->create([
+            'train_profit_factor' => '12.000000000000000000',
+            'validation_profit_factor' => '15.428057177357793581',
+        ]);
+
+        $strategyRecord->refresh();
+
+        $this->assertSame('12.000000000000000000', $strategyRecord->train_profit_factor);
+        $this->assertSame('15.428057177357793581', $strategyRecord->validation_profit_factor);
+    }
+
+    /**
+     * The exact value from the Fase 5.5 failure report (SMA Medium,
+     * discarded_in_validation, minimumTrades) — must round-trip byte for
+     * byte, with no truncation and no MySQL error.
+     */
+    public function test_the_reported_failing_value_persists_without_truncation(): void
+    {
+        $strategyRecord = AutomaticSearchCycleStrategy::factory()->create([
+            'strategy_name' => 'SMA Medium',
+            'status' => 'discarded_in_validation',
+            'failed_criteria' => ['discovery' => [], 'validation' => ['minimumTrades']],
+            'validation_passed' => false,
+            'validation_profit_factor' => '15.428057177357793581',
+        ]);
+
+        $this->assertSame(
+            '15.428057177357793581',
+            AutomaticSearchCycleStrategy::query()->findOrFail($strategyRecord->id)->validation_profit_factor,
+        );
+    }
+
+    /**
+     * The `'INF'` sentinel (no losing trades, at least one winning trade —
+     * see {@see StrategyEvaluator}) must keep persisting as-is: the schema
+     * fix widens the column, it does not turn it into a numeric-only type.
+     */
+    public function test_the_infinite_profit_factor_sentinel_still_persists_correctly(): void
+    {
+        $strategyRecord = AutomaticSearchCycleStrategy::factory()->create([
+            'train_profit_factor' => 'INF',
+        ]);
+
+        $this->assertSame('INF', $strategyRecord->refresh()->train_profit_factor);
+    }
+
+    /**
+     * A profit factor computed by {@see StrategyEvaluator} (not hand-crafted)
+     * must round-trip through persistence byte for byte, proving the schema
+     * fix does not require rounding/truncating the domain's calculated
+     * value. One big winning trade followed by one small losing trade
+     * produces a ratio well above 10, exactly like the Fase 5.5 failure.
+     */
+    public function test_a_calculated_profit_factor_above_ten_round_trips_unaltered(): void
+    {
+        $closes = ['100', '100', '100', '1100', '1100', '1100', '1100', '1090'];
+        $candles = $this->candles($closes);
+        $strategy = new AutomaticSearchCycleHistoryPositionalStrategy([2 => SignalType::BUY, 4 => SignalType::SELL, 6 => SignalType::BUY, 8 => SignalType::SELL]);
+
+        $expected = (new StrategyEvaluator)->evaluate($strategy, $candles, '1000')->profitFactor;
+
+        $this->assertSame(1, bccomp($expected, '10', 18), "expected profitFactor {$expected} to exceed 10 for this test to be meaningful");
+
+        $strategyRecord = AutomaticSearchCycleStrategy::factory()->create([
+            'train_profit_factor' => $expected,
+        ]);
+
+        $this->assertSame($expected, $strategyRecord->refresh()->train_profit_factor);
+    }
+
+    /**
      * @return array{symbol: string, evaluatedAt: string, status: string, reason: string|null, strategies: array<int, array<string, mixed>>}
      */
     private function assetReview(string $symbol): array
