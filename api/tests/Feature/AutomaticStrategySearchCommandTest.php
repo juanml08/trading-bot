@@ -45,6 +45,44 @@ class AutomaticStrategySearchCommandTest extends TestCase
         Http::assertNothingSent();
     }
 
+    /**
+     * Covers the "progressive slots" rule: while every active-cycle slot is
+     * taken, a due search must not run at all (no HTTP call, `next_search_at`
+     * untouched); once one of those cycles frees a slot, the very next tick
+     * must resume the search without needing any extra nudge — `isDue()` was
+     * already true the whole time, `availableSlots()` is the only thing that
+     * was blocking it.
+     */
+    public function test_it_searches_again_once_a_slot_is_freed_after_being_full(): void
+    {
+        config(['trading.active_cycles.max_active' => 5]);
+        $this->fakeBinanceKlines();
+        $state = AutomaticSearchState::factory()->create([
+            'status' => AutomaticSearchState::STATUS_RUNNING,
+            'next_search_at' => CarbonImmutable::now()->subMinute(),
+        ]);
+        $cycles = [];
+        for ($i = 0; $i < 5; $i++) {
+            $cycles[] = ActiveTradingCycle::factory()->create([
+                'account_id' => $state->account_id,
+                'asset_id' => Asset::factory()->create(['symbol' => "PRE{$i}USDT"])->id,
+                'state' => ActiveTradingCycleState::Hold,
+            ]);
+        }
+
+        $this->artisan('automatic:search')->assertExitCode(0);
+
+        Http::assertNothingSent();
+        $this->assertNull($state->fresh()->last_searched_at);
+
+        $cycles[0]->update(['state' => ActiveTradingCycleState::Closed]);
+
+        $this->artisan('automatic:search')->assertExitCode(0);
+
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v3/exchangeInfo'));
+        $this->assertNotNull($state->fresh()->last_searched_at);
+    }
+
     public function test_it_does_not_search_again_before_the_next_search_is_due(): void
     {
         Http::fake();

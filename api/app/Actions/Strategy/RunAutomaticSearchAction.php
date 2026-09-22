@@ -241,10 +241,15 @@ final readonly class RunAutomaticSearchAction
             // ever claims a cycle that was not durably recorded.
             $this->persistCycleHistory($account, $now, $cycle);
 
+            // Same interval as the "no candidate" path below: activating a
+            // cycle only fills one of up to `max_active` slots, so the
+            // search must keep retrying on the configured cadence instead of
+            // going quiet — `availableSlots()` is what actually stops it
+            // once every slot is taken (see `__invoke()` above).
             $state->update([
                 'symbol' => $activatedSymbol,
                 'last_searched_at' => $now,
-                'next_search_at' => null,
+                'next_search_at' => $this->nextRetryAt($now),
                 'last_cycle' => $cycle,
             ]);
 

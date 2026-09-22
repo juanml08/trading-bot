@@ -60,6 +60,7 @@ class RunAutomaticSearchActionTest extends TestCase
 
     public function test_a_selectable_candidate_is_applied_and_started_automatically(): void
     {
+        config(['trading.automatic_search.retry_seconds' => 3600]);
         StrategyModel::factory()->create(['name' => 'Idle', 'class' => RunAutomaticSearchActionIdleStrategy::class, 'parameters' => []]);
         $state = AutomaticSearchState::factory()->create();
 
@@ -80,7 +81,11 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertSame('Búsqueda completada: 1 activo(s) revisado(s), 1 candidato(s) encontrado(s).', $completedEvent->message);
 
         $this->assertSame('BTCUSDT', $state->fresh()->symbol);
-        $this->assertNull($state->fresh()->next_search_at);
+        // Activating a candidate only fills one of up to `max_active` slots,
+        // so the search must keep retrying on the configured cadence
+        // instead of going quiet (see RunAutomaticSearchAction::availableSlots()).
+        $this->assertNotNull($state->fresh()->next_search_at);
+        $this->assertTrue($state->fresh()->next_search_at->gte(CarbonImmutable::now()->addMinutes(59)));
         $this->assertNotNull($state->fresh()->last_searched_at);
 
         $lastCycle = $state->fresh()->last_cycle;

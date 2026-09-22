@@ -20,10 +20,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * no active strategy at all — that is exactly the "no candidate yet, waiting
  * for the next attempt" state.
  *
- * Search only happens while `status = running` AND the account has no
- * {@see ActiveStrategy} with `status = running` (see
- * {@see AutomaticStrategySearchCommand}) — once a strategy is applied and
- * running, this row stays untouched until that strategy stops.
+ * Search only happens while `status = running`, and keeps retrying on
+ * `retry_seconds` regardless of whether the previous attempt activated a
+ * candidate — activating one only fills one of up to
+ * `config('trading.active_cycles.max_active')` {@see ActiveTradingCycle}
+ * slots, so more candidates may still be worth searching for. It is
+ * {@see RunAutomaticSearchAction}'s `availableSlots()` check, not this row's
+ * own status, that stops the search once every slot is taken, and lets it
+ * resume automatically once one frees up (see
+ * {@see AutomaticStrategySearchCommand}).
  *
  * `symbol` is nullable: it is no longer chosen by the user at "Iniciar
  * automático" time, but recorded once a search attempt's
