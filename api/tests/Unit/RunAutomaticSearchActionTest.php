@@ -417,7 +417,13 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertSame('Se evaluaron 3 estrategia(s) sobre BTCUSDT.', $event->message);
     }
 
-    public function test_defaults_to_the_configured_strategy_catalog_when_none_is_given(): void
+    /**
+     * Discover's default candidate universe is {@see StrategyCatalog::discoveryCandidates()}
+     * (~100 SMA/EMA parameter variations), deliberately wider than "Buscar
+     * estrategia" manual's fixed {@see StrategyCatalog::all()} (6 strategies)
+     * — see RunAutomaticSearchAction's constructor docblock.
+     */
+    public function test_defaults_to_the_discovery_strategy_catalog_when_none_is_given(): void
     {
         $state = AutomaticSearchState::factory()->create(['symbol' => 'BTCUSDT']);
 
@@ -438,7 +444,7 @@ class RunAutomaticSearchActionTest extends TestCase
         $action($state);
 
         $event = BotEvent::query()->where('event_type', 'strategies_evaluated')->first();
-        $this->assertSame('Se evaluaron '.count(StrategyCatalog::all()).' estrategia(s) sobre BTCUSDT.', $event->message);
+        $this->assertSame('Se evaluaron '.count(StrategyCatalog::discoveryCandidates()).' estrategia(s) sobre BTCUSDT.', $event->message);
     }
 
     /**
@@ -484,6 +490,55 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertTrue($fresh->next_search_at->lte(CarbonImmutable::now()->addMinutes(31)));
         $this->assertNull($fresh->last_searched_at);
         $this->assertNull($fresh->last_cycle);
+    }
+
+    /**
+     * Regression test for the "cURL error 28: Connection timed out" bug: a
+     * Binance failure evaluating one scanned candidate must not abort the
+     * whole search attempt — it is logged as an `error` BotEvent for that
+     * asset, and the remaining candidates are still evaluated and can still
+     * be selected.
+     */
+    public function test_a_market_data_failure_evaluating_one_candidate_does_not_abort_the_rest_of_the_cycle(): void
+    {
+        config(['trading.automatic_search.retry_seconds' => 3600]);
+        StrategyModel::factory()->create(['name' => 'Idle', 'class' => RunAutomaticSearchActionIdleStrategy::class, 'parameters' => []]);
+        $state = AutomaticSearchState::factory()->create();
+
+        // The scan itself must succeed for both symbols (it only ranks by
+        // volume) — the failure is specific to evaluating AAAUSDT's strategy
+        // pipeline, exercising the per-candidate try/catch rather than the
+        // Scanner's own per-symbol resilience (already covered by
+        // OpportunityScannerTest).
+        $scanProvider = new RunAutomaticSearchActionFakeMarketDataProvider($this->candles());
+        $evaluationProvider = new RunAutomaticSearchActionFailingForSymbolMarketDataProvider($this->candles(), failingSymbol: 'AAAUSDT');
+        $pipeline = new StrategyPipeline(
+            evaluator: new StrategyEvaluator,
+            selector: new StrategySelector,
+            split: new TrainValidationSplit(50),
+            minimumTrades: 0,
+            minimumWinRate: '0',
+            maximumDrawdown: '100',
+            minimumProfitLoss: '-1000000',
+        );
+        $searchAction = new SearchStrategiesAction(new MarketDataStrategyPipelineRunner($evaluationProvider, $pipeline));
+        $scanner = new OpportunityScanner(new RunAutomaticSearchActionFakeUniverseProvider(['AAAUSDT', 'BBBUSDT']), $scanProvider);
+        $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, ['Idle' => new RunAutomaticSearchActionIdleStrategy]);
+
+        $action($state);
+
+        $errorEvent = BotEvent::query()->where('event_type', 'error')->where('asset', 'AAAUSDT')->first();
+        $this->assertNotNull($errorEvent);
+        $this->assertStringContainsString('AAAUSDT', $errorEvent->message);
+
+        // BBBUSDT was still evaluated and selected despite AAAUSDT failing.
+        $active = ActiveStrategy::query()->where('account_id', $state->account_id)->first();
+        $this->assertNotNull($active);
+        $this->assertSame('BBBUSDT', $active->symbol);
+
+        $lastCycle = $state->fresh()->last_cycle;
+        $this->assertSame(1, $lastCycle['assetsReviewed']);
+        $this->assertSame('BBBUSDT', $lastCycle['assets'][0]['symbol']);
     }
 
     /**
@@ -543,6 +598,31 @@ final class RunAutomaticSearchActionFakeMarketDataProvider implements MarketData
 
     public function getHistoricalCandles(string $symbol, Timeframe $timeframe, CarbonImmutable $from, CarbonImmutable $to): array
     {
+        return $this->candles;
+    }
+}
+
+/**
+ * Simulates one specific symbol's market data request failing (e.g. a
+ * Binance timeout) while every other symbol succeeds, to exercise
+ * RunAutomaticSearchAction's per-candidate resilience.
+ */
+final class RunAutomaticSearchActionFailingForSymbolMarketDataProvider implements MarketDataProvider
+{
+    /**
+     * @param  Candle[]  $candles
+     */
+    public function __construct(
+        private readonly array $candles,
+        private readonly string $failingSymbol,
+    ) {}
+
+    public function getHistoricalCandles(string $symbol, Timeframe $timeframe, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        if (strtoupper($symbol) === strtoupper($this->failingSymbol)) {
+            throw new RuntimeException('cURL error 28: Connection timed out after 10016 milliseconds');
+        }
+
         return $this->candles;
     }
 }

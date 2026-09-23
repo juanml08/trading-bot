@@ -7,7 +7,11 @@ use Carbon\CarbonImmutable;
 
 /**
  * Generates BUY/SELL/HOLD signals from an exponential moving average
- * crossover: a short EMA (5 candles) crossing a long EMA (13 candles).
+ * crossover between a configurable short and long EMA window, defaulting to
+ * a short EMA (5 candles) crossing a long EMA (13 candles) — the same
+ * default this class always used before its periods became configurable
+ * (see {@see StrategyCatalog::discoveryCandidates()} for the
+ * wider set of period variations Discover evaluates).
  *
  * Each EMA series is seeded with the first candle's close and smoothed
  * forward with the standard multiplier `2 / (period + 1)` — a deliberately
@@ -29,10 +33,6 @@ use Carbon\CarbonImmutable;
  */
 final class EmaCrossoverStrategy implements Strategy
 {
-    private const int SHORT_PERIOD = 5;
-
-    private const int LONG_PERIOD = 13;
-
     /** @var string[] */
     private array $shortEmaCache = [];
 
@@ -44,6 +44,11 @@ final class EmaCrossoverStrategy implements Strategy
     /** @var array<int, array{0: string, 1: string}> multiplier/oneMinusMultiplier by period */
     private array $multiplierCache = [];
 
+    public function __construct(
+        private readonly int $shortPeriod = 5,
+        private readonly int $longPeriod = 13,
+    ) {}
+
     /**
      * @param  Candle[]  $candles  chronologically ordered (oldest first)
      */
@@ -51,13 +56,13 @@ final class EmaCrossoverStrategy implements Strategy
     {
         $count = count($candles);
 
-        if ($count < self::LONG_PERIOD + 1) {
+        if ($count < $this->longPeriod + 1) {
             return new Signal(
                 type: SignalType::HOLD,
                 reason: sprintf(
                     'Not enough candles to evaluate the EMA crossover: %d available, %d required.',
                     $count,
-                    self::LONG_PERIOD + 1,
+                    $this->longPeriod + 1,
                 ),
                 generatedAt: CarbonImmutable::now(),
             );
@@ -67,8 +72,8 @@ final class EmaCrossoverStrategy implements Strategy
             && count($this->shortEmaCache) <= $count
             && $candles[count($this->shortEmaCache) - 1] === $this->cachedLastCandle;
 
-        $shortEma = $this->exponentialMovingAverages($candles, self::SHORT_PERIOD, $canExtendCache ? $this->shortEmaCache : []);
-        $longEma = $this->exponentialMovingAverages($candles, self::LONG_PERIOD, $canExtendCache ? $this->longEmaCache : []);
+        $shortEma = $this->exponentialMovingAverages($candles, $this->shortPeriod, $canExtendCache ? $this->shortEmaCache : []);
+        $longEma = $this->exponentialMovingAverages($candles, $this->longPeriod, $canExtendCache ? $this->longEmaCache : []);
 
         $this->shortEmaCache = $shortEma;
         $this->longEmaCache = $longEma;
@@ -88,7 +93,7 @@ final class EmaCrossoverStrategy implements Strategy
         if ($crossedAbove) {
             return new Signal(
                 type: SignalType::BUY,
-                reason: 'Short EMA (5) crossed above long EMA (13).',
+                reason: "Short EMA ({$this->shortPeriod}) crossed above long EMA ({$this->longPeriod}).",
                 generatedAt: CarbonImmutable::now(),
             );
         }
@@ -96,14 +101,14 @@ final class EmaCrossoverStrategy implements Strategy
         if ($crossedBelow) {
             return new Signal(
                 type: SignalType::SELL,
-                reason: 'Short EMA (5) crossed below long EMA (13).',
+                reason: "Short EMA ({$this->shortPeriod}) crossed below long EMA ({$this->longPeriod}).",
                 generatedAt: CarbonImmutable::now(),
             );
         }
 
         return new Signal(
             type: SignalType::HOLD,
-            reason: 'No EMA crossover detected between the short (5) and long (13) moving averages.',
+            reason: "No EMA crossover detected between the short ({$this->shortPeriod}) and long ({$this->longPeriod}) moving averages.",
             generatedAt: CarbonImmutable::now(),
         );
     }

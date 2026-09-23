@@ -7,6 +7,7 @@ use App\MarketData\MarketDataProvider;
 use App\MarketData\SymbolUniverseProvider;
 use App\MarketData\Timeframe;
 use Carbon\CarbonImmutable;
+use Throwable;
 
 /**
  * Reduces a tradable symbol universe to a small set of candidates worth
@@ -35,11 +36,14 @@ final readonly class OpportunityScanner
     ) {}
 
     /**
+     * @param  (callable(string $symbol, Throwable $exception): void)|null  $onSymbolFailure  called for
+     *                                                                                        each symbol whose market data request fails (e.g. a Binance timeout), instead of letting
+     *                                                                                        the whole scan fail — see the class docblock's note on per-symbol resilience.
      * @return OpportunityCandidate[] ranked by recent volume, descending;
      *                                at most $limit, fewer if the universe
      *                                does not have enough tradable symbols
      */
-    public function scan(?int $limit = null): array
+    public function scan(?int $limit = null, ?callable $onSymbolFailure = null): array
     {
         $limit ??= (int) config('trading.opportunity_scanner.limit');
         $quoteAsset = (string) config('trading.opportunity_scanner.quote_asset');
@@ -55,7 +59,20 @@ final readonly class OpportunityScanner
         $candidates = [];
 
         foreach ($symbols as $symbol) {
-            $candles = $this->marketDataProvider->getHistoricalCandles($symbol, $timeframe, $from, $now);
+            // A single symbol's market data request failing (e.g. a Binance
+            // timeout) must not abort the scan for every other symbol — it
+            // is simply excluded from ranking, exactly like a symbol with no
+            // candles is below. $onSymbolFailure lets the caller (see
+            // RunAutomaticSearchAction) record which symbol failed and why.
+            try {
+                $candles = $this->marketDataProvider->getHistoricalCandles($symbol, $timeframe, $from, $now);
+            } catch (Throwable $exception) {
+                if ($onSymbolFailure !== null) {
+                    $onSymbolFailure($symbol, $exception);
+                }
+
+                continue;
+            }
 
             if ($candles === []) {
                 continue;

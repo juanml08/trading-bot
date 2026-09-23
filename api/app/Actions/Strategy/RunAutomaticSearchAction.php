@@ -83,9 +83,13 @@ final readonly class RunAutomaticSearchAction
 
     /**
      * @param  array<string, Strategy>|null  $strategies  keyed by strategy name; defaults to
-     *                                                    {@see StrategyCatalog::all()} in production. Overridable only so tests can
-     *                                                    exercise this action with deterministic strategy doubles, exactly like
-     *                                                    "Buscar estrategia" already does for {@see SearchStrategiesAction}.
+     *                                                    {@see StrategyCatalog::discoveryCandidates()} in production — a wider
+     *                                                    universe of SMA/EMA parameter variations than "Buscar estrategia"
+     *                                                    manual evaluates (see {@see StrategyCatalog::all()}), since Discover
+     *                                                    can afford to cast a much wider net than a single manual search.
+     *                                                    Overridable only so tests can exercise this action with
+     *                                                    deterministic strategy doubles, exactly like "Buscar estrategia"
+     *                                                    already does for {@see SearchStrategiesAction}.
      */
     public function __construct(
         private SearchStrategiesAction $searchAction,
@@ -135,7 +139,14 @@ final readonly class RunAutomaticSearchAction
         // purely informational: the Scanner does not decide BUY/SELL/HOLD or
         // declare any of these candidates profitable, it only narrows down
         // which symbols are worth handing to the Strategy Pipeline.
-        $candidates = $this->scanner->scan();
+        $candidates = $this->scanner->scan(onSymbolFailure: function (string $symbol, Throwable $exception) use ($account): void {
+            BotEvent::query()->create([
+                'account_id' => $account->id,
+                'event_type' => 'error',
+                'asset' => $symbol,
+                'message' => "No se pudo obtener datos de mercado para {$symbol}: {$exception->getMessage()}",
+            ]);
+        });
 
         if ($candidates === []) {
             BotEvent::query()->create([
@@ -158,7 +169,7 @@ final readonly class RunAutomaticSearchAction
 
         $timeframe = Timeframe::from($state->timeframe);
         $lookbackDays = (int) config('trading.automatic_search.lookback_days');
-        $strategies = $this->strategies ?? StrategyCatalog::all();
+        $strategies = $this->strategies ?? StrategyCatalog::discoveryCandidates();
 
         $assetReviews = [];
         $availableSlots = $this->availableSlots($account);
@@ -173,14 +184,29 @@ final readonly class RunAutomaticSearchAction
                 break;
             }
 
-            $result = ($this->searchAction)(
-                $candidate->symbol,
-                $timeframe,
-                $now->subDays($lookbackDays),
-                $now,
-                $strategies,
-                (string) $state->capital,
-            );
+            // A Binance failure (e.g. a request timeout) evaluating one
+            // candidate must not abort the whole cycle — it is logged and
+            // the remaining candidates are still evaluated, exactly like a
+            // symbol failing during the scan above.
+            try {
+                $result = ($this->searchAction)(
+                    $candidate->symbol,
+                    $timeframe,
+                    $now->subDays($lookbackDays),
+                    $now,
+                    $strategies,
+                    (string) $state->capital,
+                );
+            } catch (Throwable $exception) {
+                BotEvent::query()->create([
+                    'account_id' => $account->id,
+                    'event_type' => 'error',
+                    'asset' => $candidate->symbol,
+                    'message' => "No se pudo evaluar {$candidate->symbol}: {$exception->getMessage()}",
+                ]);
+
+                continue;
+            }
 
             BotEvent::query()->create([
                 'account_id' => $account->id,

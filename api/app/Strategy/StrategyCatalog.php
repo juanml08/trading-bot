@@ -2,6 +2,7 @@
 
 namespace App\Strategy;
 
+use App\Actions\Strategy\RunAutomaticSearchAction;
 use Database\Seeders\StrategySeeder;
 
 /**
@@ -42,5 +43,68 @@ final class StrategyCatalog
             'SMA Medium' => ['shortPeriod' => 10, 'longPeriod' => 20],
             default => [],
         };
+    }
+
+    /**
+     * The wider universe of candidates "Modo Automático" Discover evaluates
+     * each search attempt (see {@see RunAutomaticSearchAction}),
+     * as opposed to the small, fixed {@see all()} catalog "Buscar estrategia"
+     * (manual) evaluates. Discover can afford to cast a much wider net than a
+     * single manual search, so instead of a handful of fixed strategies, this
+     * generates every (shortPeriod, longPeriod) combination of the existing
+     * {@see SmaCrossoverStrategy} and {@see EmaCrossoverStrategy} families —
+     * reusing those two already-tested crossover implementations rather than
+     * inventing new strategy logic. Discovery/Validation thresholds
+     * (`config('trading.discovery')`/`config('trading.validation')`) are
+     * untouched by this — only the candidate universe grows.
+     *
+     * @return array<string, Strategy> keyed by strategy name, exactly like {@see all()}
+     */
+    public static function discoveryCandidates(): array
+    {
+        $candidates = [];
+
+        foreach (self::crossoverPeriodPairs() as [$shortPeriod, $longPeriod]) {
+            $candidates["SMA {$shortPeriod}/{$longPeriod}"] = new SmaCrossoverStrategy($shortPeriod, $longPeriod);
+            $candidates["EMA {$shortPeriod}/{$longPeriod}"] = new EmaCrossoverStrategy($shortPeriod, $longPeriod);
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @return array<string, mixed> constructor named arguments for a {@see discoveryCandidates()} name
+     */
+    public static function discoveryParametersFor(string $name): array
+    {
+        if (! preg_match('/^(?:SMA|EMA) (\d+)\/(\d+)$/', $name, $matches)) {
+            return [];
+        }
+
+        return ['shortPeriod' => (int) $matches[1], 'longPeriod' => (int) $matches[2]];
+    }
+
+    /**
+     * 5 short periods x 10 long periods = 50 valid (short < long) pairs per
+     * family (SMA, EMA), for 100 discovery candidates total — "aproximadamente
+     * 100" per the experiment brief. Every long period here is well above the
+     * largest short period, so every pair is valid by construction; no
+     * filtering or deduplication is needed.
+     *
+     * @return array<int, array{0: int, 1: int}>
+     */
+    private static function crossoverPeriodPairs(): array
+    {
+        $shortPeriods = [5, 8, 10, 12, 15];
+        $longPeriods = [20, 25, 30, 40, 50, 60, 80, 100, 120, 150];
+
+        $pairs = [];
+        foreach ($shortPeriods as $shortPeriod) {
+            foreach ($longPeriods as $longPeriod) {
+                $pairs[] = [$shortPeriod, $longPeriod];
+            }
+        }
+
+        return $pairs;
     }
 }

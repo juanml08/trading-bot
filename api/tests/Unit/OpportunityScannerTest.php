@@ -9,7 +9,9 @@ use App\MarketData\Timeframe;
 use App\Opportunity\OpportunityCandidate;
 use App\Opportunity\OpportunityScanner;
 use Carbon\CarbonImmutable;
+use RuntimeException;
 use Tests\TestCase;
+use Throwable;
 
 class OpportunityScannerTest extends TestCase
 {
@@ -87,6 +89,46 @@ class OpportunityScannerTest extends TestCase
     }
 
     /**
+     * A single symbol's market data request failing (e.g. a Binance timeout)
+     * must not abort the whole scan — the other symbols are still ranked and
+     * returned, exactly as if the failed symbol simply did not exist.
+     */
+    public function test_a_symbol_that_fails_to_fetch_market_data_is_skipped_without_aborting_the_scan(): void
+    {
+        $provider = new OpportunityScannerFailingMarketDataProvider(
+            volumesBySymbol: ['GOOD' => '100'],
+            failingSymbols: ['BAD'],
+        );
+        $scanner = new OpportunityScanner(new OpportunityScannerFakeUniverseProvider(['GOOD', 'BAD']), $provider);
+
+        $candidates = $scanner->scan(5);
+
+        $this->assertCount(1, $candidates);
+        $this->assertSame('GOOD', $candidates[0]->symbol);
+    }
+
+    /**
+     * The caller must be told which symbol failed and why, so it can record
+     * that as a BotEvent (see RunAutomaticSearchAction) instead of the
+     * failure silently disappearing.
+     */
+    public function test_it_reports_each_failed_symbol_and_its_exception_to_the_given_callback(): void
+    {
+        $provider = new OpportunityScannerFailingMarketDataProvider(
+            volumesBySymbol: ['GOOD' => '100'],
+            failingSymbols: ['BAD'],
+        );
+        $scanner = new OpportunityScanner(new OpportunityScannerFakeUniverseProvider(['GOOD', 'BAD']), $provider);
+
+        $failures = [];
+        $scanner->scan(5, onSymbolFailure: function (string $symbol, Throwable $exception) use (&$failures): void {
+            $failures[] = [$symbol, $exception->getMessage()];
+        });
+
+        $this->assertSame([['BAD', 'connection timed out']], $failures);
+    }
+
+    /**
      * @param  string[]  $symbols
      * @param  array<string, string>  $volumesBySymbol
      */
@@ -132,6 +174,40 @@ final class OpportunityScannerFakeMarketDataProvider implements MarketDataProvid
             low: '1',
             close: '1',
             volume: $volume,
+        )];
+    }
+}
+
+/**
+ * Simulates some symbols failing (e.g. a Binance timeout) while the rest
+ * succeed, to exercise the Scanner's per-symbol resilience.
+ */
+final class OpportunityScannerFailingMarketDataProvider implements MarketDataProvider
+{
+    /**
+     * @param  array<string, string>  $volumesBySymbol
+     * @param  string[]  $failingSymbols
+     */
+    public function __construct(
+        private readonly array $volumesBySymbol,
+        private readonly array $failingSymbols,
+    ) {}
+
+    public function getHistoricalCandles(string $symbol, Timeframe $timeframe, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        if (in_array($symbol, $this->failingSymbols, true)) {
+            throw new RuntimeException('connection timed out');
+        }
+
+        return [new Candle(
+            symbol: $symbol,
+            timeframe: $timeframe,
+            timestamp: $from,
+            open: '1',
+            high: '1',
+            low: '1',
+            close: '1',
+            volume: $this->volumesBySymbol[$symbol] ?? '1',
         )];
     }
 }
