@@ -30,6 +30,8 @@ class StartAutomaticSearchModeController extends Controller
 {
     public function __invoke(StartAutomaticSearchRequest $request): JsonResponse
     {
+        set_time_limit(0);
+
         $action = $this->buildAction();
 
         $state = $action(

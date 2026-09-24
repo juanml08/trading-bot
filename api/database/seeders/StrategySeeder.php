@@ -16,7 +16,7 @@ use Illuminate\Database\Seeder;
  * {@see ActivateStrategyAction} can reference by name,
  * and that {@see StrategyFactory} can later reconstruct. Both {@see
  * StrategyCatalog::all()} (manual, 6 strategies) and {@see
- * StrategyCatalog::discoveryCandidates()} (Discover, ~100 SMA/EMA parameter
+ * StrategyCatalog::discoveryCandidates()} (Discover, 200 SMA/EMA parameter
  * variations) are seeded, since a candidate Discover selects and activates
  * must be resolvable by name exactly like a manually-applied one.
  */

@@ -39,7 +39,7 @@ return [
     */
 
     'discovery' => [
-        'minimum_trades' => env('DISCOVERY_MINIMUM_TRADES', 6),
+        'minimum_trades' => env('DISCOVERY_MINIMUM_TRADES', 5),
         'minimum_win_rate' => env('DISCOVERY_MINIMUM_WIN_RATE', '30'),
         'maximum_drawdown' => env('DISCOVERY_MAXIMUM_DRAWDOWN', '15'),
         'minimum_profit_loss' => env('DISCOVERY_MINIMUM_PROFIT_LOSS', '0'),
@@ -61,7 +61,7 @@ return [
     */
 
     'validation' => [
-        'minimum_trades' => env('VALIDATION_MINIMUM_TRADES', 8),
+        'minimum_trades' => env('VALIDATION_MINIMUM_TRADES', 6),
         'minimum_win_rate' => env('VALIDATION_MINIMUM_WIN_RATE', '40'),
         'maximum_drawdown' => env('VALIDATION_MAXIMUM_DRAWDOWN', '10'),
         'minimum_profit_loss' => env('VALIDATION_MINIMUM_PROFIT_LOSS', '0'),

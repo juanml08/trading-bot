@@ -60,9 +60,9 @@ class StrategyCatalogTest extends TestCase
         $this->assertCount(6, StrategyCatalog::all());
     }
 
-    public function test_discovery_candidates_total_approximately_one_hundred(): void
+    public function test_discovery_candidates_total_two_hundred(): void
     {
-        $this->assertCount(100, StrategyCatalog::discoveryCandidates());
+        $this->assertCount(200, StrategyCatalog::discoveryCandidates());
     }
 
     public function test_discovery_candidates_are_all_sma_or_ema_crossovers_with_no_duplicate_names(): void
