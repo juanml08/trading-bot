@@ -62,11 +62,62 @@ final class AutomaticTradingCycle
             'price' => $currentPrice,
         ]);
 
-        match ($signal->type) {
-            SignalType::HOLD => null,
-            SignalType::BUY => $this->handleBuy($active, $cycle, $asset, $signal, $currentPrice),
-            SignalType::SELL => $this->handleSell($active, $cycle, $asset, $signal, $currentPrice),
-        };
+        if ($signal->type === SignalType::SELL) {
+            $this->handleSell($active, $cycle, $asset, $currentPrice);
+
+            return;
+        }
+
+        if ($this->handleRiskExit($active, $cycle, $asset, $currentPrice)) {
+            return;
+        }
+
+        if ($signal->type === SignalType::BUY) {
+            $this->handleBuy($active, $cycle, $asset, $signal, $currentPrice);
+        }
+    }
+
+    /**
+     * Safety net for an open position when the strategy did not say SELL:
+     * closes it on stop loss or max holding time (see `trading.risk_exit`),
+     * recording `risk_stop_loss` / `risk_time_exit` before `position_closed`.
+     *
+     * @return bool whether the position was closed
+     */
+    private function handleRiskExit(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, string $currentPrice): bool
+    {
+        $trade = $this->openTrade($active, $asset);
+
+        if ($trade === null) {
+            return false;
+        }
+
+        $stopLossPercent = (string) config('trading.risk_exit.stop_loss_percent');
+        $maxHoldingHours = (int) config('trading.risk_exit.max_holding_hours');
+
+        if (bccomp($stopLossPercent, '0', 4) > 0 && bccomp($trade->entry_price, '0', 18) > 0) {
+            $lossPercent = bcmul(bcdiv(bcsub($trade->entry_price, $currentPrice, 18), $trade->entry_price, 18), '100', 4);
+
+            if (bccomp($lossPercent, $stopLossPercent, 4) >= 0) {
+                $this->recordEvent($active, $cycle, 'risk_stop_loss', $asset->symbol,
+                    "Stop loss: {$asset->symbol} perdió {$lossPercent}% desde la entrada (límite {$stopLossPercent}%).",
+                    ['trade_id' => $trade->id, 'loss_percent' => $lossPercent]);
+                $this->handleSell($active, $cycle, $asset, $currentPrice);
+
+                return true;
+            }
+        }
+
+        if ($maxHoldingHours > 0 && $trade->opened_at->copy()->addHours($maxHoldingHours)->lte(CarbonImmutable::now())) {
+            $this->recordEvent($active, $cycle, 'risk_time_exit', $asset->symbol,
+                "Salida por tiempo: {$asset->symbol} lleva abierta {$maxHoldingHours}h o más.",
+                ['trade_id' => $trade->id, 'max_holding_hours' => $maxHoldingHours]);
+            $this->handleSell($active, $cycle, $asset, $currentPrice);
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -130,7 +181,7 @@ final class AutomaticTradingCycle
         }
     }
 
-    private function handleSell(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, Signal $signal, string $currentPrice): void
+    private function handleSell(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, string $currentPrice): void
     {
         $trade = $this->openTrade($active, $asset);
 

@@ -122,4 +122,23 @@ return [
         'hold_timeout_hours' => env('HOLD_CYCLE_TIMEOUT_HOURS', 4),
     ],
 
+    /*
+    |--------------------------------------------------------------------
+    | Risk exit (safety net for open positions)
+    |--------------------------------------------------------------------
+    |
+    | Evaluated by AutomaticTradingCycle only when the strategy did NOT
+    | produce a SELL (a strategy SELL always has priority). Either rule
+    | closes the open position: `stop_loss_percent` when the price is that
+    | many percent (0-100) or more below the entry price, and
+    | `max_holding_hours` when the position has been open that long. A
+    | value of 0 disables the corresponding rule.
+    |
+    */
+
+    'risk_exit' => [
+        'stop_loss_percent' => env('RISK_STOP_LOSS_PERCENT', '2'),
+        'max_holding_hours' => env('RISK_MAX_HOLDING_HOURS', 3),
+    ],
+
 ];

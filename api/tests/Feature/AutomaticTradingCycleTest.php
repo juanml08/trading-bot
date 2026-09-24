@@ -87,7 +87,7 @@ class AutomaticTradingCycleTest extends TestCase
         // A fresh cycle instance and a freshly reloaded ActiveStrategy simulate
         // the process restarting between two scheduler ticks.
         $reloaded = ActiveStrategy::query()->with('strategy')->findOrFail($active->id);
-        (new AutomaticTradingCycle)->process($reloaded, $this->candles($this->flatCandles()));
+        (new AutomaticTradingCycle)->process($reloaded, $this->candles(['110', '110', '110', '110', '110']));
 
         $trade = Trade::query()->sole();
         $this->assertSame('open', $trade->status);
@@ -295,6 +295,90 @@ class AutomaticTradingCycleTest extends TestCase
 
         $this->assertSame(2, Trade::query()->count());
         $this->assertSame(1, Trade::query()->where('status', 'open')->count());
+    }
+
+    /**
+     * Risk exit: a price 2% or more below the entry price closes the
+     * position even though the strategy only says HOLD, logging
+     * `risk_stop_loss` before `position_closed`, and closes the cycle.
+     */
+    public function test_stop_loss_closes_the_position_when_the_strategy_does_not_sell(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '2', 'trading.risk_exit.max_holding_hours' => 3]);
+        $active = $this->activeStrategy();
+        $cycle = $this->linkedCycle($active);
+
+        $this->process($active, $this->risingCandles()); // BUY at 110
+        $this->process($active, ['120', '115', '112', '110', '107']); // -2.73%, no SMA cross
+
+        $trade = Trade::query()->sole();
+        $this->assertSame('closed', $trade->status);
+        $this->assertSame(ActiveTradingCycleState::Closed, $cycle->fresh()->state);
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'risk_stop_loss', 'active_trading_cycle_id' => $cycle->id]);
+        $this->assertDatabaseHas('orders', ['trade_id' => $trade->id, 'side' => 'sell']);
+        $this->assertEventBefore('risk_stop_loss', 'position_closed');
+    }
+
+    /**
+     * Risk exit: a position open for the maximum holding time closes even
+     * when the price is unchanged, logging `risk_time_exit`.
+     */
+    public function test_max_holding_time_closes_the_position_when_the_strategy_does_not_sell(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '2', 'trading.risk_exit.max_holding_hours' => 3]);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        Trade::query()->sole()->update(['opened_at' => CarbonImmutable::now()->subHours(3)]);
+        $this->process($active, ['110', '110', '110', '110', '110']);
+
+        $this->assertSame('closed', Trade::query()->sole()->status);
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'risk_time_exit']);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_stop_loss']);
+        $this->assertEventBefore('risk_time_exit', 'position_closed');
+    }
+
+    /**
+     * Priority: a strategy SELL closes the position without any risk event
+     * even when the stop loss would also apply (110 -> 90).
+     */
+    public function test_a_strategy_sell_has_priority_over_risk_exits(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '2', 'trading.risk_exit.max_holding_hours' => 3]);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+
+        $this->assertSame('closed', Trade::query()->sole()->status);
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'position_closed']);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_stop_loss']);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_time_exit']);
+    }
+
+    /**
+     * A small loss (below 2%) on a recent position triggers nothing: HOLD.
+     */
+    public function test_a_position_meeting_no_condition_stays_open(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '2', 'trading.risk_exit.max_holding_hours' => 3]);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, ['120', '115', '112', '110', '109']); // -0.9%, no SMA cross
+
+        $this->assertSame('open', Trade::query()->sole()->status);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_stop_loss']);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_time_exit']);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'position_closed']);
+    }
+
+    private function assertEventBefore(string $first, string $second): void
+    {
+        $this->assertLessThan(
+            BotEvent::query()->where('event_type', $second)->value('id'),
+            BotEvent::query()->where('event_type', $first)->value('id'),
+        );
     }
 
     private function linkedCycle(ActiveStrategy $active): ActiveTradingCycle
