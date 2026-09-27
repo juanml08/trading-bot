@@ -84,16 +84,17 @@ final class EmaCrossoverStrategy implements Strategy
         $currentShortEma = $shortEma[$count - 1];
         $currentLongEma = $longEma[$count - 1];
 
-        $crossedAbove = bccomp($previousShortEma, $previousLongEma, 18) <= 0
-            && bccomp($currentShortEma, $currentLongEma, 18) > 0;
+        // Experiment: BUY is available whenever the short average is above the long one,
+        // not only on the exact crossover candle. SELL still requires the crossover below.
+        $shortAboveLong = bccomp($currentShortEma, $currentLongEma, 18) > 0;
 
         $crossedBelow = bccomp($previousShortEma, $previousLongEma, 18) >= 0
             && bccomp($currentShortEma, $currentLongEma, 18) < 0;
 
-        if ($crossedAbove) {
+        if ($shortAboveLong) {
             return new Signal(
                 type: SignalType::BUY,
-                reason: "Short EMA ({$this->shortPeriod}) crossed above long EMA ({$this->longPeriod}).",
+                reason: "Short EMA ({$this->shortPeriod}) is above long EMA ({$this->longPeriod}).",
                 generatedAt: CarbonImmutable::now(),
             );
         }

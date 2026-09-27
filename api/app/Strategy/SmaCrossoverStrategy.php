@@ -46,16 +46,17 @@ final readonly class SmaCrossoverStrategy implements Strategy
         $currentShortSma = $this->simpleMovingAverage($candles, $this->shortPeriod, offset: 0);
         $currentLongSma = $this->simpleMovingAverage($candles, $this->longPeriod, offset: 0);
 
-        $crossedAbove = bccomp($previousShortSma, $previousLongSma, 18) <= 0
-            && bccomp($currentShortSma, $currentLongSma, 18) > 0;
+        // Experiment: BUY is available whenever the short average is above the long one,
+        // not only on the exact crossover candle. SELL still requires the crossover below.
+        $shortAboveLong = bccomp($currentShortSma, $currentLongSma, 18) > 0;
 
         $crossedBelow = bccomp($previousShortSma, $previousLongSma, 18) >= 0
             && bccomp($currentShortSma, $currentLongSma, 18) < 0;
 
-        if ($crossedAbove) {
+        if ($shortAboveLong) {
             return new Signal(
                 type: SignalType::BUY,
-                reason: "Short SMA ({$this->shortPeriod}) crossed above long SMA ({$this->longPeriod}).",
+                reason: "Short SMA ({$this->shortPeriod}) is above long SMA ({$this->longPeriod}).",
                 generatedAt: CarbonImmutable::now(),
             );
         }

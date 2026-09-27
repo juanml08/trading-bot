@@ -30,7 +30,7 @@ class SmaCrossoverStrategyTest extends TestCase
         $signal = $strategy->generate($this->candlesWithCloses($closes));
 
         $this->assertSame(SignalType::BUY, $signal->type);
-        $this->assertStringContainsString('crossed above', $signal->reason);
+        $this->assertStringContainsString('is above', $signal->reason);
     }
 
     public function test_returns_sell_when_short_sma_crosses_below_long_sma(): void
@@ -53,6 +53,33 @@ class SmaCrossoverStrategyTest extends TestCase
 
         $this->assertSame(SignalType::HOLD, $signal->type);
         $this->assertStringContainsString('No SMA crossover', $signal->reason);
+    }
+
+    public function test_returns_buy_when_short_sma_was_already_above_long_sma_and_stays_above(): void
+    {
+        $strategy = new SmaCrossoverStrategy(shortPeriod: 10, longPeriod: 20);
+
+        $signal = $strategy->generate($this->candlesWithCloses([...array_fill(0, 20, '100'), '130', '131']));
+
+        $this->assertSame(SignalType::BUY, $signal->type);
+    }
+
+    public function test_does_not_buy_or_sell_when_short_sma_is_already_below_long_sma(): void
+    {
+        $strategy = new SmaCrossoverStrategy(shortPeriod: 10, longPeriod: 20);
+
+        $signal = $strategy->generate($this->candlesWithCloses([...array_fill(0, 20, '100'), '70', '69']));
+
+        $this->assertSame(SignalType::HOLD, $signal->type);
+    }
+
+    public function test_does_not_buy_when_short_sma_equals_long_sma(): void
+    {
+        $strategy = new SmaCrossoverStrategy(shortPeriod: 10, longPeriod: 20);
+
+        $signal = $strategy->generate($this->candlesWithCloses([...array_fill(0, 20, '100'), '100', '100']));
+
+        $this->assertSame(SignalType::HOLD, $signal->type);
     }
 
     /**

@@ -15,10 +15,10 @@ use Tests\TestCase;
  */
 class AutomaticSearchExperimentThreeConfigTest extends TestCase
 {
-    public function test_opportunity_scanner_evaluates_twenty_assets_per_search(): void
+    public function test_opportunity_scanner_evaluates_thirty_assets_per_search(): void
     {
-        $this->assertSame(20, (int) config('trading.opportunity_scanner.limit'));
-        $this->assertSame(20, (int) config('trading.opportunity_scanner.max_universe_size'));
+        $this->assertSame(30, (int) config('trading.opportunity_scanner.limit'));
+        $this->assertSame(30, (int) config('trading.opportunity_scanner.max_universe_size'));
     }
 
     public function test_opportunity_scanner_timeframe_is_thirty_minutes(): void

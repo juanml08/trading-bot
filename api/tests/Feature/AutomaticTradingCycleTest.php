@@ -55,6 +55,42 @@ class AutomaticTradingCycleTest extends TestCase
         $this->assertDatabaseHas('bot_events', ['event_type' => 'signal_ignored_position_open']);
     }
 
+    public function test_a_sustained_uptrend_buy_opens_a_position_when_none_is_open(): void
+    {
+        $active = $this->activeStrategy();
+
+        $this->process($active, ['100', '100', '100', '100', '110', '112']); // short already above long, no crossover candle
+
+        $this->assertSame('open', Trade::query()->sole()->status);
+    }
+
+    public function test_a_sustained_uptrend_does_not_repeat_buys_on_every_evaluation(): void
+    {
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, ['100', '100', '100', '100', '110', '112']);
+        $this->process($active, ['100', '100', '100', '100', '110', '112', '114']);
+
+        $this->assertSame(1, Trade::query()->count());
+        $this->assertSame(1, BotEvent::query()->where('event_type', 'position_opened')->count());
+        $this->assertSame(2, BotEvent::query()->where('event_type', 'signal_ignored_position_open')->count());
+    }
+
+    public function test_a_sell_closes_the_position_and_a_later_sustained_uptrend_may_buy_again(): void
+    {
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        $this->assertSame('closed', Trade::query()->sole()->status);
+
+        $this->process($active, ['100', '100', '100', '100', '110', '112']);
+
+        $this->assertSame(2, Trade::query()->count());
+        $this->assertSame(1, Trade::query()->where('status', 'open')->count());
+    }
+
     public function test_a_sell_signal_without_an_open_position_creates_nothing(): void
     {
         $active = $this->activeStrategy();

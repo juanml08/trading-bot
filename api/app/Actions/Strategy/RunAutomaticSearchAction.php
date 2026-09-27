@@ -464,8 +464,50 @@ final readonly class RunAutomaticSearchAction
                 $assetReviews,
                 fn (array $review): bool => $review['status'] === 'candidate_found',
             )),
+            'discardSummary' => $this->discardSummary($assetReviews),
             'assets' => $assetReviews,
         ];
+    }
+
+    /**
+     * Counts, over every strategy evaluated this cycle, how many were
+     * discarded per criterion, reading the `failedCriteria` already recorded
+     * by {@see strategyDiagnostics()} (Discovery's, or Validation's for those
+     * that reached it — a strategy is only ever discarded at one of the two).
+     * A strategy failing several criteria counts once under each, so the
+     * per-criterion counts can add up to more than the strategies discarded.
+     *
+     * @param  array<int, array{strategies: array<int, array<string, mixed>>}>  $assetReviews
+     * @return array{strategiesEvaluated: int, minimumWinRate: int, maximumDrawdown: int, minimumTrades: int, minimumProfitLoss: int}
+     */
+    private function discardSummary(array $assetReviews): array
+    {
+        $summary = [
+            'strategiesEvaluated' => 0,
+            'minimumWinRate' => 0,
+            'maximumDrawdown' => 0,
+            'minimumTrades' => 0,
+            'minimumProfitLoss' => 0,
+        ];
+
+        foreach ($assetReviews as $review) {
+            foreach ($review['strategies'] as $strategy) {
+                $summary['strategiesEvaluated']++;
+
+                $failedCriteria = [
+                    ...$strategy['discovery']['failedCriteria'],
+                    ...($strategy['validation']['failedCriteria'] ?? []),
+                ];
+
+                foreach ($failedCriteria as $criterion) {
+                    if (array_key_exists($criterion, $summary)) {
+                        $summary[$criterion]++;
+                    }
+                }
+            }
+        }
+
+        return $summary;
     }
 
     /**
@@ -473,11 +515,19 @@ final readonly class RunAutomaticSearchAction
      */
     private function logCycleCompleted(TradingAccount $account, array $cycle): void
     {
+        $discards = $cycle['discardSummary'];
+
         BotEvent::query()->create([
             'account_id' => $account->id,
             'event_type' => 'automatic_search_completed',
             'asset' => null,
-            'message' => "Búsqueda completada: {$cycle['assetsReviewed']} activo(s) revisado(s), {$cycle['candidatesFound']} candidato(s) encontrado(s).",
+            'message' => "Búsqueda completada: {$cycle['assetsReviewed']} activo(s) revisado(s), {$cycle['candidatesFound']} candidato(s) encontrado(s)."
+                ." Resumen: evaluadas: {$discards['strategiesEvaluated']}"
+                .", descartadas por win rate: {$discards['minimumWinRate']}"
+                .", por drawdown: {$discards['maximumDrawdown']}"
+                .", por pocas operaciones: {$discards['minimumTrades']}"
+                .", por rentabilidad: {$discards['minimumProfitLoss']}"
+                .", candidatas finales: {$cycle['candidatesFound']}.",
         ]);
     }
 

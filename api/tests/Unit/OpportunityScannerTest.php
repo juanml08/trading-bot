@@ -16,21 +16,21 @@ use Throwable;
 class OpportunityScannerTest extends TestCase
 {
     /**
-     * Experimento 3: 20 oportunidades/activos por búsqueda (antes 15).
+     * Experimento 4: 30 oportunidades/activos por búsqueda (antes 20).
      */
-    public function test_the_default_limit_is_twenty(): void
+    public function test_the_default_limit_is_thirty(): void
     {
-        $this->assertSame(20, (int) config('trading.opportunity_scanner.limit'));
+        $this->assertSame(30, (int) config('trading.opportunity_scanner.limit'));
     }
 
-    public function test_it_returns_at_most_twenty_candidates_using_the_default_limit(): void
+    public function test_it_returns_at_most_thirty_candidates_using_the_default_limit(): void
     {
-        $symbols = array_map(fn (int $i): string => "SYM{$i}USDT", range(1, 25));
+        $symbols = array_map(fn (int $i): string => "SYM{$i}USDT", range(1, 35));
         $scanner = $this->scanner($symbols);
 
         $candidates = $scanner->scan();
 
-        $this->assertCount(20, $candidates);
+        $this->assertCount(30, $candidates);
     }
 
     public function test_it_returns_at_most_the_configured_limit(): void

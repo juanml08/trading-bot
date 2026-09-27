@@ -118,7 +118,7 @@ return [
     */
 
     'active_cycles' => [
-        'max_active' => env('MAX_ACTIVE_CYCLES', 5),
+        'max_active' => env('MAX_ACTIVE_CYCLES', 10),
         'hold_timeout_hours' => env('HOLD_CYCLE_TIMEOUT_HOURS', 4),
     ],
 

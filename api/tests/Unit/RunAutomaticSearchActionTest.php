@@ -78,7 +78,7 @@ class RunAutomaticSearchActionTest extends TestCase
         );
 
         $completedEvent = BotEvent::query()->where('event_type', 'automatic_search_completed')->first();
-        $this->assertSame('Búsqueda completada: 1 activo(s) revisado(s), 1 candidato(s) encontrado(s).', $completedEvent->message);
+        $this->assertSame('Búsqueda completada: 1 activo(s) revisado(s), 1 candidato(s) encontrado(s). Resumen: evaluadas: 1, descartadas por win rate: 0, por drawdown: 0, por pocas operaciones: 0, por rentabilidad: 0, candidatas finales: 1.', $completedEvent->message);
 
         $this->assertSame('BTCUSDT', $state->fresh()->symbol);
         // Activating a candidate only fills one of up to `max_active` slots,
@@ -128,7 +128,7 @@ class RunAutomaticSearchActionTest extends TestCase
         );
 
         $completedEvent = BotEvent::query()->where('event_type', 'automatic_search_completed')->first();
-        $this->assertSame('Búsqueda completada: 1 activo(s) revisado(s), 0 candidato(s) encontrado(s).', $completedEvent->message);
+        $this->assertSame('Búsqueda completada: 1 activo(s) revisado(s), 0 candidato(s) encontrado(s). Resumen: evaluadas: 2, descartadas por win rate: 0, por drawdown: 0, por pocas operaciones: 2, por rentabilidad: 0, candidatas finales: 0.', $completedEvent->message);
 
         $fresh = $state->fresh();
         $this->assertNotNull($fresh->next_search_at);
@@ -138,6 +138,8 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertSame(1, $lastCycle['assetsReviewed']);
         $this->assertSame(0, $lastCycle['candidatesFound']);
         $this->assertSame('BTCUSDT', $lastCycle['assets'][0]['symbol']);
+        $this->assertSame(2, $lastCycle['discardSummary']['strategiesEvaluated']);
+        $this->assertSame(2, $lastCycle['discardSummary']['minimumTrades']);
     }
 
     /**
@@ -243,7 +245,7 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertSame('No se encontraron oportunidades para evaluar.', $opportunitiesEvent->message);
 
         $completedEvent = BotEvent::query()->where('event_type', 'automatic_search_completed')->first();
-        $this->assertSame('Búsqueda completada: 0 activo(s) revisado(s), 0 candidato(s) encontrado(s).', $completedEvent->message);
+        $this->assertSame('Búsqueda completada: 0 activo(s) revisado(s), 0 candidato(s) encontrado(s). Resumen: evaluadas: 0, descartadas por win rate: 0, por drawdown: 0, por pocas operaciones: 0, por rentabilidad: 0, candidatas finales: 0.', $completedEvent->message);
 
         $lastCycle = $state->fresh()->last_cycle;
         $this->assertSame(0, $lastCycle['assetsReviewed']);
