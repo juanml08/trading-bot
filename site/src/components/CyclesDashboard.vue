@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
@@ -14,6 +14,40 @@ const REFRESCO_MS = 15000
 // estado ni tiempo restante — todo viene ya calculado del Backend.
 const resumen = ref(null)
 const ciclos = ref([])
+
+const CICLOS_POR_PAGINA = 10
+const paginaActual = ref(1)
+
+const FILTROS = [
+  { valor: 'ALL', etiqueta: 'Todos' },
+  { valor: 'HOLD', etiqueta: 'HOLD' },
+  { valor: 'POSITION_OPEN', etiqueta: 'Posición abierta' },
+  { valor: 'CLOSED', etiqueta: 'Cerrados' },
+]
+const filtroEstado = ref('ALL')
+
+const ciclosFiltrados = computed(() =>
+  filtroEstado.value === 'ALL' ? ciclos.value : ciclos.value.filter((c) => c.status === filtroEstado.value),
+)
+
+const totalPaginas = computed(() => Math.max(1, Math.ceil(ciclosFiltrados.value.length / CICLOS_POR_PAGINA)))
+
+const ciclosPagina = computed(() => {
+  const inicio = (paginaActual.value - 1) * CICLOS_POR_PAGINA
+  return ciclosFiltrados.value.slice(inicio, inicio + CICLOS_POR_PAGINA)
+})
+
+function cambiarFiltro(valor) {
+  filtroEstado.value = valor
+  paginaActual.value = 1
+}
+
+// Si tras un refresco/detención la página actual deja de existir, retrocede.
+watch(totalPaginas, (total) => {
+  if (paginaActual.value > total) {
+    paginaActual.value = total
+  }
+})
 
 // idle | loading | success | error
 const estadoCiclos = ref('idle')
@@ -300,7 +334,24 @@ onUnmounted(() => {
     </p>
 
     <div v-else class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button
+          v-for="filtro in FILTROS"
+          :key="filtro.valor"
+          type="button"
+          class="rounded-full px-3 py-1 text-xs transition-colors"
+          :class="filtroEstado === filtro.valor ? 'bg-neutral-100 text-neutral-900 font-medium' : 'bg-neutral-800/60 text-neutral-400 hover:text-neutral-200'"
+          @click="cambiarFiltro(filtro.valor)"
+        >
+          {{ filtro.etiqueta }}
+        </button>
+      </div>
+
+      <p v-if="ciclosFiltrados.length === 0" class="text-center text-sm text-neutral-500 py-4">
+        No hay ciclos con este filtro.
+      </p>
+
+      <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-left text-neutral-500 border-b border-neutral-800">
             <th class="py-2 pr-3 font-normal">Activo</th>
@@ -313,7 +364,7 @@ onUnmounted(() => {
           </tr>
         </thead>
         <tbody>
-          <template v-for="ciclo in ciclos" :key="ciclo.id">
+          <template v-for="ciclo in ciclosPagina" :key="ciclo.id">
             <tr class="border-b border-neutral-800/60">
               <td class="py-2 pr-3 font-medium">{{ ciclo.symbol ?? '—' }}</td>
               <td class="py-2 pr-3 text-neutral-300">{{ ciclo.strategy_name ?? '—' }}</td>
@@ -364,6 +415,32 @@ onUnmounted(() => {
           </template>
         </tbody>
       </table>
+
+      <div v-if="totalPaginas > 1" class="flex items-center justify-between mt-4 text-xs text-neutral-400">
+        <span class="tabular-nums">
+          {{ (paginaActual - 1) * CICLOS_POR_PAGINA + 1 }}–{{ Math.min(paginaActual * CICLOS_POR_PAGINA, ciclosFiltrados.length) }}
+          de {{ ciclosFiltrados.length }}
+        </span>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="hover:text-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            :disabled="paginaActual === 1"
+            @click="paginaActual--"
+          >
+            ← Anterior
+          </button>
+          <span class="tabular-nums">Página {{ paginaActual }} de {{ totalPaginas }}</span>
+          <button
+            type="button"
+            class="hover:text-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            :disabled="paginaActual === totalPaginas"
+            @click="paginaActual++"
+          >
+            Siguiente →
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 </template>

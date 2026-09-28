@@ -14,7 +14,7 @@ const REFRESCO_MS = 60000
 // Fáciles de convertir en controles de UI más adelante.
 const BUSQUEDA_CONFIG = {
   symbol: 'BTCUSDT',
-  timeframe: '30m',
+  timeframe: '15m',
   from: '2026-08-01T00:00:00',
   to: '2026-09-01T00:00:00',
 }
