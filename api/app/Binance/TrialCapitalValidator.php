@@ -20,21 +20,10 @@ final class TrialCapitalValidator
      */
     public function assertCapitalIsAvailable(string $capital): void
     {
-        $available = $this->availableUsdtBalance();
+        $available = $this->client->availableBalance('USDT');
 
         if (bccomp($capital, $available, 18) > 0) {
             throw new CapitalExceedsAvailableBalanceException($capital, $available);
         }
-    }
-
-    private function availableUsdtBalance(): string
-    {
-        foreach ($this->client->getBalances() as $balance) {
-            if ($balance->asset === 'USDT') {
-                return $balance->free;
-            }
-        }
-
-        return '0';
     }
 }

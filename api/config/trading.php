@@ -124,6 +124,29 @@ return [
 
     /*
     |--------------------------------------------------------------------
+    | Dynamic capital per slot
+    |--------------------------------------------------------------------
+    |
+    | Governs how much USDT {@see App\Binance\DynamicCapitalCalculator} hands
+    | to a single BUY, computed at execution time from the Binance account's
+    | real available USDT balance instead of a fixed per-trade amount:
+    |
+    |     capital por slot = balance disponible x (1 - reserve_percent) / MAX_ACTIVE_CYCLES
+    |
+    | `reserve_percent` (0-100) is the share of the balance left untouched;
+    | `min_notional_usdt` is the smallest capital a BUY may use — below it,
+    | the order is skipped and logged instead of attempted (see
+    | AutomaticTradingCycle::resolveBuyCapital()).
+    |
+    */
+
+    'capital' => [
+        'reserve_percent' => env('CAPITAL_RESERVE_PERCENT', 0),
+        'min_notional_usdt' => env('MIN_NOTIONAL_USDT', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------
     | Risk exit (safety net for open positions)
     |--------------------------------------------------------------------
     |

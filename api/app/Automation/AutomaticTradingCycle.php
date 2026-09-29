@@ -2,6 +2,8 @@
 
 namespace App\Automation;
 
+use App\Binance\BinanceAccountClient;
+use App\Binance\DynamicCapitalCalculator;
 use App\Console\Commands\ProcessAutomaticTradingCommand;
 use App\MarketData\Candle;
 use App\Models\ActiveStrategy;
@@ -41,10 +43,19 @@ use Carbon\CarbonImmutable;
  */
 final class AutomaticTradingCycle
 {
+    private readonly DynamicCapitalCalculator $capitalCalculator;
+
     public function __construct(
         private readonly RiskManager $riskManager = new RiskManager,
         private readonly SimulatedTradeExecutor $executor = new SimulatedTradeExecutor,
-    ) {}
+        ?DynamicCapitalCalculator $capitalCalculator = null,
+    ) {
+        $this->capitalCalculator = $capitalCalculator ?? new DynamicCapitalCalculator(new BinanceAccountClient(
+            baseUrl: config('services.binance.base_url'),
+            apiKey: config('services.binance.api_key'),
+            apiSecret: config('services.binance.api_secret'),
+        ));
+    }
 
     /**
      * @param  Candle[]  $candles  chronologically ordered (oldest first)
@@ -140,12 +151,18 @@ final class AutomaticTradingCycle
             return;
         }
 
+        $capital = $this->resolveBuyCapital($active, $cycle, $asset);
+
+        if ($capital === null) {
+            return;
+        }
+
         $openTradesCount = Trade::query()->where('account_id', $active->account_id)->where('status', 'open')->count();
 
         $assessment = $this->riskManager->evaluate(
             $signal,
-            $active->capital,
-            $active->capital,
+            $capital,
+            $capital,
             $active->tradingAccount->riskSetting,
             $openTradesCount,
         );
@@ -179,6 +196,42 @@ final class AutomaticTradingCycle
         if ($cycle !== null && $cycle->state === ActiveTradingCycleState::Hold) {
             $cycle->update(['state' => ActiveTradingCycleState::PositionOpen]);
         }
+    }
+
+    /**
+     * The capital this BUY may use. A cycle-linked ActiveStrategy (Modo
+     * Automático — see `resolveCycle()`) never uses its own stored
+     * `capital`: it always gets a fresh
+     * `balance disponible x (1 - reserve) / MAX_ACTIVE_CYCLES` share from
+     * {@see DynamicCapitalCalculator}, computed at this exact moment so it
+     * reflects the account's real balance right when the position opens,
+     * not a stale value from when the slot's candidate was activated. A
+     * cycle-less ActiveStrategy (Manual "Aplicar" — no slot concept applies)
+     * keeps using its own configured `capital`, unchanged.
+     *
+     * Returns null — after recording why — when the computed capital does
+     * not clear `trading.capital.min_notional_usdt`: sending an order for an
+     * amount too small to be valid is unsafe, so the BUY is skipped instead
+     * of attempted.
+     */
+    private function resolveBuyCapital(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset): ?string
+    {
+        if ($cycle === null) {
+            return $active->capital;
+        }
+
+        $capital = $this->capitalCalculator->capitalPerSlot();
+        $minNotional = (string) config('trading.capital.min_notional_usdt');
+
+        if (bccomp($capital, $minNotional, 18) < 0) {
+            $this->recordEvent($active, $cycle, 'signal_rejected_insufficient_capital', $asset->symbol,
+                "BUY omitido: capital por slot ({$capital} USDT) por debajo del mínimo operable ({$minNotional} USDT).",
+                ['capital_per_slot' => $capital, 'min_notional_usdt' => $minNotional]);
+
+            return null;
+        }
+
+        return $capital;
     }
 
     private function handleSell(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, string $currentPrice): void

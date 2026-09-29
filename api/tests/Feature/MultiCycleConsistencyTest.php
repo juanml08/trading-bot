@@ -34,6 +34,7 @@ use App\Strategy\TrainValidationSplit;
 use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -85,6 +86,15 @@ class MultiCycleConsistencyTest extends TestCase
             'parameters' => ['shortPeriod' => 2, 'longPeriod' => 4],
         ]);
         $bnbCycle->activeStrategy->update(['strategy_id' => $trader->id]);
+
+        // A cycle-linked BUY now reads its capital from the real Binance
+        // balance / MAX_ACTIVE_CYCLES (see DynamicCapitalCalculator), not
+        // from ActiveStrategy::$capital.
+        Http::fake([
+            '*' => Http::response(['balances' => [
+                ['asset' => 'USDT', 'free' => '10000.00000000', 'locked' => '0.00000000'],
+            ]], 200),
+        ]);
 
         (new AutomaticTradingCycle)->process($bnbCycle->activeStrategy->fresh('strategy'), $this->candles($this->risingCloses()));
 

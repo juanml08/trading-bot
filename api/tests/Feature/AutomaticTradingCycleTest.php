@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Automation\AutomaticTradingCycle;
+use App\Binance\DynamicCapitalCalculator;
 use App\MarketData\Candle;
 use App\MarketData\Timeframe;
 use App\Models\ActiveStrategy;
@@ -16,6 +17,7 @@ use App\Models\TradingAccount;
 use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AutomaticTradingCycleTest extends TestCase
@@ -409,6 +411,25 @@ class AutomaticTradingCycleTest extends TestCase
         $this->assertDatabaseMissing('bot_events', ['event_type' => 'position_closed']);
     }
 
+    /**
+     * When the balance / MAX_ACTIVE_CYCLES share computed for this slot does
+     * not clear `trading.capital.min_notional_usdt`, the BUY is skipped
+     * (no Trade, no Order) and the reason is logged instead of attempting an
+     * order too small to be valid.
+     */
+    public function test_a_buy_is_skipped_when_the_capital_per_slot_is_below_the_minimum_notional(): void
+    {
+        config(['trading.active_cycles.max_active' => 20, 'trading.capital.min_notional_usdt' => 10]);
+        $active = $this->activeStrategy();
+        // 20 USDT / 20 slots = 1 USDT per slot, below the 10 USDT minimum.
+        $this->linkedCycle($active, '20.00000000');
+
+        $this->process($active, $this->risingCandles());
+
+        $this->assertDatabaseCount('trades', 0);
+        $this->assertDatabaseHas('bot_events', ['event_type' => 'signal_rejected_insufficient_capital']);
+    }
+
     private function assertEventBefore(string $first, string $second): void
     {
         $this->assertLessThan(
@@ -417,8 +438,22 @@ class AutomaticTradingCycleTest extends TestCase
         );
     }
 
-    private function linkedCycle(ActiveStrategy $active): ActiveTradingCycle
+    /**
+     * A cycle-linked BUY reads its capital from
+     * {@see DynamicCapitalCalculator} (real Binance balance /
+     * MAX_ACTIVE_CYCLES) instead of the ActiveStrategy's own `capital`. This
+     * fakes that balance for the whole test — `$usdtFreeBalance` defaults to
+     * a comfortably large amount so most tests exercise position state
+     * transitions, not the min-notional guard.
+     */
+    private function linkedCycle(ActiveStrategy $active, string $usdtFreeBalance = '10000.00000000'): ActiveTradingCycle
     {
+        Http::fake([
+            '*' => Http::response(['balances' => [
+                ['asset' => 'USDT', 'free' => $usdtFreeBalance, 'locked' => '0.00000000'],
+            ]], 200),
+        ]);
+
         return ActiveTradingCycle::factory()->create([
             'account_id' => $active->account_id,
             'asset_id' => Asset::factory()->create(['symbol' => $active->symbol])->id,

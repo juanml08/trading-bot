@@ -49,6 +49,21 @@ final class BinanceAccountClient
     }
 
     /**
+     * The `free` (available, unlocked) balance of a single asset, or "0" if
+     * the account holds none of it.
+     */
+    public function availableBalance(string $asset): string
+    {
+        foreach ($this->getBalances() as $balance) {
+            if ($balance->asset === $asset) {
+                return $balance->free;
+            }
+        }
+
+        return '0';
+    }
+
+    /**
      * @param  array<string, int|string>  $query
      */
     private function sign(array $query): string
