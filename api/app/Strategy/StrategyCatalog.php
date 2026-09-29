@@ -85,18 +85,20 @@ final class StrategyCatalog
     }
 
     /**
-     * 10 short periods x 20 long periods = 200 valid (short < long) pairs per
-     * family (SMA, EMA), for 400 discovery candidates total (Experimento 5;
-     * Experimento 3 used 10 long periods for 200). Every long period here is
-     * well above the largest short period, so every pair is valid by
-     * construction; no filtering or deduplication is needed.
+     * 10 short periods x 25 long periods = 250 valid (short < long) pairs per
+     * family (SMA, EMA), for 500 discovery candidates total (Experimento 6;
+     * Experimento 5 used 20 long periods for 400, Experimento 3 used 10 long
+     * periods for 200). The long-period list keeps the same short periods and
+     * extends the existing 175/200 step-25 tail with 225, 250, 275, 300, 325.
+     * Every long period here is well above the largest short period, so every
+     * pair is valid by construction; no filtering or deduplication is needed.
      *
      * @return array<int, array{0: int, 1: int}>
      */
     private static function crossoverPeriodPairs(): array
     {
         $shortPeriods = [3, 4, 5, 6, 7, 8, 9, 10, 12, 15];
-        $longPeriods = [20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 175, 200];
+        $longPeriods = [20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 175, 200, 225, 250, 275, 300, 325];
 
         $pairs = [];
         foreach ($shortPeriods as $shortPeriod) {
