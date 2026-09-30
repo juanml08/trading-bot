@@ -83,6 +83,110 @@ class StartAutomaticSearchModeControllerTest extends TestCase
         );
     }
 
+    /**
+     * Regression test for the "el experimento pidió 30m pero corrió en 15m"
+     * bug: whatever timeframe the request explicitly selects must be exactly
+     * what gets persisted — no silent coercion to any other value.
+     */
+    public function test_starting_with_30m_persists_exactly_30m(): void
+    {
+        $this->fakeBinance();
+        $account = TradingAccount::factory()->create();
+        $this->actingAsAccount($account);
+
+        $response = $this->postJson('/api/automatic-search/start', $this->payload(['timeframe' => '30m']));
+
+        $response->assertOk();
+        $this->assertDatabaseHas('automatic_search_states', [
+            'account_id' => $account->id,
+            'timeframe' => '30m',
+        ]);
+    }
+
+    /**
+     * A missing `timeframe` must be rejected outright — there is no default
+     * it could silently fall back to (see StartAutomaticSearchRequest).
+     */
+    public function test_it_rejects_a_missing_timeframe_instead_of_defaulting(): void
+    {
+        Http::fake();
+        $this->actingAsAccount(TradingAccount::factory()->create());
+
+        $payload = $this->payload();
+        unset($payload['timeframe']);
+
+        $response = $this->postJson('/api/automatic-search/start', $payload);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors('timeframe');
+        $this->assertDatabaseCount('automatic_search_states', 0);
+    }
+
+    /**
+     * A timeframe outside the bot's supported set must be rejected — the
+     * backend never invents or accepts an unsupported value.
+     */
+    public function test_it_rejects_an_unsupported_timeframe(): void
+    {
+        Http::fake();
+        $this->actingAsAccount(TradingAccount::factory()->create());
+
+        $response = $this->postJson('/api/automatic-search/start', $this->payload(['timeframe' => '20m']));
+
+        $response->assertUnprocessable()->assertJsonValidationErrors('timeframe');
+        $this->assertDatabaseCount('automatic_search_states', 0);
+    }
+
+    /**
+     * The Opportunity Scanner's own timeframe (config('trading.opportunity_scanner.timeframe'),
+     * governed by OPPORTUNITY_SCANNER_TIMEFRAME) is a separate concept from
+     * the experiment's trading timeframe — changing one must never affect
+     * the other. This is the exact confusion that caused the "30m en .env
+     * pero 15m en el experimento" incident.
+     */
+    public function test_the_opportunity_scanner_timeframe_does_not_affect_the_experiment_timeframe(): void
+    {
+        config(['trading.opportunity_scanner.timeframe' => '5m']);
+        $this->fakeBinance();
+        $account = TradingAccount::factory()->create();
+        $this->actingAsAccount($account);
+
+        $this->postJson('/api/automatic-search/start', $this->payload(['timeframe' => '30m']))->assertOk();
+
+        $this->assertDatabaseHas('automatic_search_states', [
+            'account_id' => $account->id,
+            'timeframe' => '30m',
+        ]);
+    }
+
+    /**
+     * Starting an experiment must leave its effective configuration
+     * auditable later, without reconstructing it from scattered logs — see
+     * StartAutomaticSearchModeAction::configSnapshot(). Reuses the existing
+     * `bot_events.data` JSON column instead of a new table/column.
+     */
+    public function test_starting_records_the_effective_experiment_configuration_snapshot(): void
+    {
+        $this->fakeBinance();
+        $account = TradingAccount::factory()->create();
+        $this->actingAsAccount($account);
+
+        $this->postJson('/api/automatic-search/start', $this->payload(['timeframe' => '30m', 'capital' => '500']))->assertOk();
+
+        $event = BotEvent::query()
+            ->where('account_id', $account->id)
+            ->where('event_type', 'automatic_mode_started')
+            ->first();
+
+        $this->assertNotNull($event);
+        $this->assertNotNull($event->data);
+        $this->assertSame('30m', $event->data['timeframe']);
+        $this->assertSame('500', $event->data['capital']);
+        $this->assertSame('trial', $event->data['mode']);
+        $this->assertArrayHasKey('strategies_evaluated', $event->data);
+        $this->assertArrayHasKey('lookback_days', $event->data);
+        $this->assertArrayHasKey('max_active_cycles', $event->data);
+    }
+
     public function test_it_rejects_mode_real(): void
     {
         Http::fake();

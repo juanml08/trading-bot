@@ -10,15 +10,23 @@ const API_BASE_URL = 'http://127.0.0.1:8000'
 // pestaña), así que el panel necesita re-consultar para seguir "vivo".
 const REFRESCO_MS = 60000
 
-// Parámetros de búsqueda fijos para esta primera versión: el único campo
-// editable por el usuario es `capital` (ver `capitalATrabajar` más abajo).
-// Fáciles de convertir en controles de UI más adelante.
+// Parámetros de búsqueda fijos para esta primera versión: los únicos campos
+// editables por el usuario son `capital` (ver `capitalATrabajar` más abajo) y
+// `timeframe` (ver `timeframeSeleccionado`). Fáciles de convertir en más
+// controles de UI más adelante.
 const BUSQUEDA_CONFIG = {
   symbol: 'BTCUSDT',
-  timeframe: '15m',
   from: '2026-08-01T00:00:00',
   to: '2026-09-01T00:00:00',
 }
+
+// Timeframes soportados por el bot (ver App\MarketData\Timeframe en el
+// backend, que valida contra este mismo conjunto). El timeframe del
+// experimento es siempre una selección explícita del usuario: no existe un
+// valor por defecto silencioso que pueda diferir de lo que el usuario elige
+// acá — ver reglas.md y la corrección del bug de timeframe 15m/30m.
+const TIMEFRAMES_SOPORTADOS = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w']
+const timeframeSeleccionado = ref('30m')
 
 // Saldo de cuenta: viene exclusivamente de Binance Demo vía
 // GET /api/binance/balance. Laravel es la única fuente de verdad; Vue solo
@@ -285,6 +293,7 @@ async function buscarEstrategia() {
       },
       body: JSON.stringify({
         ...BUSQUEDA_CONFIG,
+        timeframe: timeframeSeleccionado.value,
         capital: capitalATrabajar.value,
         mode: modo.value.toLowerCase(),
       }),
@@ -439,7 +448,7 @@ async function aplicarEstrategia() {
       body: JSON.stringify({
         strategy_name: resultado.value.selectedCandidate.strategyName,
         symbol: BUSQUEDA_CONFIG.symbol,
-        timeframe: BUSQUEDA_CONFIG.timeframe,
+        timeframe: timeframeSeleccionado.value,
         capital: capitalATrabajar.value,
         mode: modo.value.toLowerCase(),
       }),
@@ -512,6 +521,7 @@ async function iniciarAutomaticoSeleccion() {
       },
       body: JSON.stringify({
         ...BUSQUEDA_CONFIG,
+        timeframe: timeframeSeleccionado.value,
         capital: capitalATrabajar.value,
         mode: modo.value.toLowerCase(),
       }),
@@ -727,7 +737,7 @@ onUnmounted(() => {
       <section class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
         <p class="text-sm text-neutral-500 mb-3 text-center">Capital y modo de cuenta</p>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="rounded-xl bg-neutral-800/40 p-4">
             <label for="capital" class="text-sm text-neutral-500 mb-3 block text-center">Capital a trabajar</label>
             <div class="flex items-center justify-center gap-2">
@@ -740,6 +750,19 @@ onUnmounted(() => {
                 step="0.01"
                 class="w-32 rounded-xl bg-neutral-800 text-neutral-100 text-center py-2 outline-none focus:ring-2 focus:ring-emerald-500"
               />
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-neutral-800/40 p-4">
+            <label for="timeframe" class="text-sm text-neutral-500 mb-3 block text-center">Timeframe del experimento</label>
+            <div class="flex items-center justify-center">
+              <select
+                id="timeframe"
+                v-model="timeframeSeleccionado"
+                class="w-32 rounded-xl bg-neutral-800 text-neutral-100 text-center py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option v-for="tf in TIMEFRAMES_SOPORTADOS" :key="tf" :value="tf">{{ tf }}</option>
+              </select>
             </div>
           </div>
 

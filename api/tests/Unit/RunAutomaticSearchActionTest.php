@@ -109,6 +109,28 @@ class RunAutomaticSearchActionTest extends TestCase
         $this->assertArrayHasKey('totalTrades', $strategies[0]['validation']['metrics']);
     }
 
+    /**
+     * Regression test for the "el experimento pidió 30m pero corrió en 15m"
+     * bug: the ActiveStrategy created for a selected candidate must inherit
+     * exactly AutomaticSearchState::$timeframe, unchanged all the way from
+     * the HTTP request through to persistence — never a different value.
+     */
+    public function test_the_active_strategy_created_inherits_the_search_states_exact_timeframe(): void
+    {
+        StrategyModel::factory()->create(['name' => 'Idle', 'class' => RunAutomaticSearchActionIdleStrategy::class, 'parameters' => []]);
+        $state = AutomaticSearchState::factory()->create(['timeframe' => '30m']);
+
+        ($this->action(['Idle' => new RunAutomaticSearchActionIdleStrategy]))($state);
+
+        $active = ActiveStrategy::query()->where('account_id', $state->account_id)->first();
+        $this->assertNotNull($active);
+        $this->assertSame('30m', $active->timeframe);
+
+        // The state itself must still read '30m' after the cycle completes —
+        // an experiment started with 30m keeps evaluating at 30m.
+        $this->assertSame('30m', $state->fresh()->timeframe);
+    }
+
     public function test_no_selectable_candidate_does_not_apply_anything_and_schedules_the_next_attempt(): void
     {
         config(['trading.automatic_search.retry_seconds' => 3600]);
