@@ -59,6 +59,14 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // Fuerza la sesión MySQL a UTC independientemente del timezone del
+            // servidor (que corre en SYSTEM = UTC-5). Sin esto, NOW()/
+            // CURRENT_TIMESTAMP y las columnas TIMESTAMP (created_at/
+            // updated_at) interpretan los valores de Laravel (siempre UTC,
+            // ver config('app.timezone')) como si fueran hora local,
+            // desalineándolos del UTC real que persisten las columnas
+            // DATETIME del negocio (opened_at, expires_at, etc.).
+            'timezone' => '+00:00',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

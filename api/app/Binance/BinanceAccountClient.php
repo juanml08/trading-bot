@@ -28,6 +28,7 @@ final class BinanceAccountClient
 
         $response = Http::baseUrl($this->baseUrl)
             ->withHeaders(['X-MBX-APIKEY' => $this->apiKey])
+            ->timeout(10)
             ->get('/api/v3/account', $query);
 
         if ($response->failed()) {

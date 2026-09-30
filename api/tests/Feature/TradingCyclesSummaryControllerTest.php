@@ -7,6 +7,8 @@ use App\Models\Asset;
 use App\Models\Trade;
 use App\Models\TradingAccount;
 use App\Trading\ActiveTradingCycleState;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -107,6 +109,49 @@ class TradingCyclesSummaryControllerTest extends TestCase
 
         $response->assertOk()->assertJson(['closed_trades_today' => 2]);
         $this->assertSame('10.25000000', $response->json('today_profit_loss'));
+    }
+
+    /**
+     * "Hoy" debe ser el día calendario de America/Bogota (UTC-5), no el día
+     * UTC: a las 03:00 UTC del 30/sep todavía es 29/sep en Bogota, así que
+     * un trade cerrado a las 10:00 UTC del 29/sep (05:00 Bogota, ya dentro
+     * del día calendario de Bogota) debe contar como "cerrado hoy" aunque
+     * caiga en el día UTC anterior — justo el caso que el viejo
+     * `CarbonImmutable::now()->startOfDay()` (medianoche UTC) contaba mal.
+     */
+    public function test_today_boundary_uses_bogota_calendar_day_not_utc_day(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-30 03:00:00', 'UTC'));
+        Carbon::setTestNow(Carbon::parse('2026-09-30 03:00:00', 'UTC'));
+
+        $account = TradingAccount::current();
+        $asset = Asset::factory()->create(['symbol' => 'BNBUSDT']);
+
+        Trade::factory()->create([
+            'account_id' => $account->id,
+            'asset_id' => $asset->id,
+            'status' => 'closed',
+            'closed_at' => CarbonImmutable::parse('2026-09-29 10:00:00', 'UTC'),
+            'profit_loss' => '20',
+        ]);
+
+        // Cae antes de medianoche Bogota (29/sep 00:00 Bogota = 29/sep 05:00
+        // UTC): es del día calendario anterior en Bogota y no debe contar.
+        Trade::factory()->create([
+            'account_id' => $account->id,
+            'asset_id' => $asset->id,
+            'status' => 'closed',
+            'closed_at' => CarbonImmutable::parse('2026-09-29 04:00:00', 'UTC'),
+            'profit_loss' => '999',
+        ]);
+
+        $response = $this->getJson('/api/cycles/summary');
+
+        $response->assertOk()->assertJson(['closed_trades_today' => 1]);
+        $this->assertSame('20.00000000', $response->json('today_profit_loss'));
+
+        CarbonImmutable::setTestNow();
+        Carbon::setTestNow();
     }
 
     private function cycle(TradingAccount $account, string $symbol, ActiveTradingCycleState $state): ActiveTradingCycle

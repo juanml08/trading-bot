@@ -21,7 +21,12 @@ class TradingCyclesSummaryController extends Controller
     public function __invoke(): JsonResponse
     {
         $account = TradingAccount::current();
-        $startOfToday = CarbonImmutable::now()->startOfDay();
+
+        // "Hoy" significa el día calendario de Colombia, no el día UTC: medianoche
+        // en America/Bogota cae 5h después de medianoche UTC, así que hay que fijar
+        // el límite en esa zona y solo entonces convertirlo a UTC para comparar
+        // contra columnas persistidas en UTC (ver reglas.md / auditoría de timezone).
+        $startOfToday = CarbonImmutable::now('America/Bogota')->startOfDay()->utc();
 
         $activeCycles = $account->activeTradingCycles()->active()->count();
         $openPositions = $account->activeTradingCycles()->where('state', ActiveTradingCycleState::PositionOpen)->count();

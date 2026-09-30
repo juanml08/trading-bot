@@ -263,7 +263,7 @@ SELECT * FROM automatic_search_states;
 -- 14.2 Trades y ordenes completos (P/L real, no el del dashboard)
 SELECT t.id, a.symbol AS asset, st.name AS strategy_name, t.status, t.entry_price, t.exit_price,
        t.profit_loss, t.profit_loss_percent, t.opened_at, t.closed_at,
-       TIMESTAMPDIFF(MINUTE, t.opened_at, COALESCE(t.closed_at, NOW())) AS minutos
+       TIMESTAMPDIFF(MINUTE, t.opened_at, COALESCE(t.closed_at, UTC_TIMESTAMP())) AS minutos
 FROM trades t
 LEFT JOIN assets a ON a.id = t.asset_id
 LEFT JOIN strategies st ON st.id = t.strategy_id
@@ -329,10 +329,10 @@ HAVING sells > buys OR buys > 1 OR sells > 1;
 SELECT id, opened_at, closed_at, TIMESTAMPDIFF(MINUTE, opened_at, closed_at) AS minutos
 FROM trades WHERE status = 'closed' AND TIMESTAMPDIFF(HOUR, opened_at, closed_at) >= 6;
 
-SELECT id, opened_at, TIMESTAMPDIFF(MINUTE, opened_at, NOW()) AS minutos_abierto
-FROM trades WHERE status = 'open' AND TIMESTAMPDIFF(HOUR, opened_at, NOW()) >= 6;
+SELECT id, opened_at, TIMESTAMPDIFF(MINUTE, opened_at, UTC_TIMESTAMP()) AS minutos_abierto
+FROM trades WHERE status = 'open' AND TIMESTAMPDIFF(HOUR, opened_at, UTC_TIMESTAMP()) >= 6;
 
-SELECT id, state, started_at, expires_at FROM active_trading_cycles WHERE state = 'HOLD' AND expires_at <= NOW();
+SELECT id, state, started_at, expires_at FROM active_trading_cycles WHERE state = 'HOLD' AND expires_at <= UTC_TIMESTAMP();
 
 SELECT ast.id AS active_strategy_id, ast.symbol, ast.status AS strategy_status, atc.id AS cycle_id, atc.state AS cycle_state
 FROM active_strategies ast
@@ -555,7 +555,7 @@ SELECT
     t.id AS trade_id,
     t.entry_price,
     t.opened_at,
-    TIMESTAMPDIFF(MINUTE, t.opened_at, NOW()) AS minutos_abierta,
+    TIMESTAMPDIFF(MINUTE, t.opened_at, UTC_TIMESTAMP()) AS minutos_abierta,
     st.name AS strategy_name
 FROM trades t
 LEFT JOIN assets a ON a.id = t.asset_id
@@ -630,15 +630,15 @@ GROUP BY o.trade_id;
 
 -- 15.17e Operaciones (cerradas o abiertas) que superan las 6h (max_holding_hours)
 SELECT id, status, opened_at, closed_at,
-    TIMESTAMPDIFF(MINUTE, opened_at, COALESCE(closed_at, NOW())) AS minutos
+    TIMESTAMPDIFF(MINUTE, opened_at, COALESCE(closed_at, UTC_TIMESTAMP())) AS minutos
 FROM trades
 WHERE opened_at IS NOT NULL
-  AND TIMESTAMPDIFF(HOUR, opened_at, COALESCE(closed_at, NOW())) >= 6;
+  AND TIMESTAMPDIFF(HOUR, opened_at, COALESCE(closed_at, UTC_TIMESTAMP())) >= 6;
 
 -- 15.17f HOLD expirados incorrectamente (deberian estar EXPIRED, siguen en HOLD)
-SELECT id, state, started_at, expires_at, TIMESTAMPDIFF(HOUR, expires_at, NOW()) AS horas_vencido
+SELECT id, state, started_at, expires_at, TIMESTAMPDIFF(HOUR, expires_at, UTC_TIMESTAMP()) AS horas_vencido
 FROM active_trading_cycles
-WHERE state = 'HOLD' AND expires_at IS NOT NULL AND expires_at <= NOW();
+WHERE state = 'HOLD' AND expires_at IS NOT NULL AND expires_at <= UTC_TIMESTAMP();
 
 -- 15.17g Estrategias activas (status=running) asociadas a ciclos cerrados/expirados
 SELECT ast.id AS active_strategy_id, ast.symbol, ast.status AS strategy_status,

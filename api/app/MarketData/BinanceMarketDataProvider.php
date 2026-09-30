@@ -27,7 +27,7 @@ final class BinanceMarketDataProvider implements MarketDataProvider
         CarbonImmutable $from,
         CarbonImmutable $to,
     ): array {
-        $response = Http::baseUrl($this->baseUrl)->get('/api/v3/klines', [
+        $response = Http::baseUrl($this->baseUrl)->timeout(10)->get('/api/v3/klines', [
             'symbol' => strtoupper($symbol),
             'interval' => $timeframe->value,
             'startTime' => $from->getTimestampMs(),

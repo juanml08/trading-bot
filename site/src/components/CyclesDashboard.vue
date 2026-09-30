@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { partesEnBogota } from '../timezone.js'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
@@ -120,8 +121,8 @@ function formatoHora(iso) {
     return '—'
   }
 
-  const fecha = new Date(iso)
-  return `${String(fecha.getHours()).padStart(2, '0')}:${String(fecha.getMinutes()).padStart(2, '0')}`
+  const { hora, minuto } = partesEnBogota(iso)
+  return `${hora}:${minuto}`
 }
 
 function formatoPL(valor) {

@@ -25,6 +25,7 @@ final class BinanceSymbolUniverseProvider implements SymbolUniverseProvider
     {
         $response = Http::baseUrl($this->baseUrl)
             ->withOptions(['stream' => true])
+            ->timeout(15)
             ->get('/api/v3/exchangeInfo');
 
         if ($response->failed()) {
