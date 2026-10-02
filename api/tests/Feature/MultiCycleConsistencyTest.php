@@ -106,7 +106,11 @@ class MultiCycleConsistencyTest extends TestCase
         $this->assertSame('open', $trade->status);
 
         // 5) SELL real -> POSITION_OPEN -> CLOSED, ActiveStrategy detenida, slot libre.
+        // El SELL ahora requiere una vela de confirmación tras el cruce bajista.
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         (new AutomaticTradingCycle)->process($bnbCycle->activeStrategy->fresh('strategy'), $this->candles($this->fallingCloses()));
+        $this->assertSame(ActiveTradingCycleState::PositionOpen, $bnbCycle->fresh()->state);
+        (new AutomaticTradingCycle)->process($bnbCycle->activeStrategy->fresh('strategy'), $this->candles([...$this->fallingCloses(), '85']));
 
         $bnbCycle->refresh();
         $this->assertSame(ActiveTradingCycleState::Closed, $bnbCycle->state);

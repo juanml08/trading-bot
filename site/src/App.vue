@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import CyclesDashboard from './components/CyclesDashboard.vue'
+import { formatoPrecio, textoMaximoRestante } from './formato.js'
 import { partesEnBogota } from './timezone.js'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
@@ -109,6 +110,33 @@ const tiempoAbierta = computed(() => {
 
   return horas > 0 ? `${horas}h ${minutos}m` : `${minutos}m`
 })
+
+// Cuenta regresiva hasta el cierre automático por max holding. El límite
+// (opened_at + horas máximas configuradas) lo calcula el backend; acá solo se
+// resta contra el reloj compartido.
+const textoMaximo = computed(() =>
+  openPosition.value ? textoMaximoRestante(openPosition.value.maxHoldingExpiresAt, ahora.value) : '',
+)
+
+// P/L separado del capital invertido: realizado (operaciones cerradas del
+// ciclo, backend), no realizado (posición abierta valuada al último precio
+// evaluado por el bot — aproximado, no es un ticker en vivo) y total.
+const pnlNoRealizado = computed(() => {
+  const valor = openPosition.value?.unrealizedProfitLoss
+  return valor === null || valor === undefined ? null : Number(valor)
+})
+
+const pnlTotal = computed(() => {
+  if (cycleProfitLoss.value === null) {
+    return null
+  }
+
+  return Number(cycleProfitLoss.value) + (pnlNoRealizado.value ?? 0)
+})
+
+function clasePL(valor) {
+  return valor > 0 ? 'text-emerald-400' : valor < 0 ? 'text-red-400' : 'text-neutral-100'
+}
 
 function formatoDinero(valor) {
   const numero = Number(valor)
@@ -652,28 +680,43 @@ onUnmounted(() => {
         </div>
 
         <div class="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 text-center">
-          <p class="text-sm text-neutral-500 mb-2">P/L acumulado del ciclo</p>
+          <p class="text-sm text-neutral-500 mb-2">P/L del ciclo</p>
           <p v-if="cycleProfitLoss === null" class="text-sm text-neutral-500">Sin ciclo activo</p>
-          <p
-            v-else
-            class="text-2xl font-semibold tabular-nums"
-            :class="Number(cycleProfitLoss) > 0 ? 'text-emerald-400' : Number(cycleProfitLoss) < 0 ? 'text-red-400' : 'text-neutral-100'"
-          >
-            {{ formatoPL(cycleProfitLoss) }}
-          </p>
+          <template v-else>
+            <p class="text-2xl font-semibold tabular-nums" :class="clasePL(pnlTotal)">
+              {{ formatoPL(pnlTotal) }}
+            </p>
+            <p class="text-xs text-neutral-500 mb-3">Total</p>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p class="text-xs text-neutral-500">Realizado</p>
+                <p class="font-medium tabular-nums" :class="clasePL(Number(cycleProfitLoss))">{{ formatoPL(cycleProfitLoss) }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-neutral-500">No realizado (aprox.)</p>
+                <p v-if="pnlNoRealizado === null" class="font-medium tabular-nums text-neutral-500">—</p>
+                <p v-else class="font-medium tabular-nums" :class="clasePL(pnlNoRealizado)">{{ formatoPL(pnlNoRealizado) }}</p>
+              </div>
+            </div>
+          </template>
         </div>
       </section>
 
       <section class="lg:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 text-center">
         <template v-if="openPosition">
           <p class="text-sm text-neutral-500 mb-3">📈 Posición abierta — {{ openPosition.symbol }}</p>
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p class="text-xs text-neutral-500">Precio entrada</p>
-              <p class="font-medium tabular-nums">{{ formatoDinero(openPosition.entryPrice) }}</p>
+              <p class="font-medium tabular-nums">{{ formatoPrecio(openPosition.entryPrice) }}</p>
             </div>
             <div>
-              <p class="text-xs text-neutral-500">Capital usado</p>
+              <p class="text-xs text-neutral-500">Último precio evaluado</p>
+              <p class="font-medium tabular-nums">{{ formatoPrecio(openPosition.currentPrice) }}</p>
+              <p v-if="openPosition.currentPriceAt" class="text-xs text-neutral-500">a las {{ formatoHora(openPosition.currentPriceAt) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-neutral-500">Capital invertido</p>
               <p class="font-medium tabular-nums">{{ formatoDinero(openPosition.capitalUsed) }}</p>
             </div>
             <div>
@@ -681,6 +724,7 @@ onUnmounted(() => {
               <p class="font-medium tabular-nums">{{ tiempoAbierta }}</p>
             </div>
           </div>
+          <p v-if="textoMaximo" class="mt-4 text-sm font-semibold tabular-nums">⏳ {{ textoMaximo }}</p>
         </template>
         <p v-else class="text-sm text-neutral-500">Sin posición abierta</p>
       </section>
@@ -715,12 +759,12 @@ onUnmounted(() => {
           <li v-for="trade in trades" :key="trade.id" class="rounded-xl bg-neutral-800/60 p-3 text-sm flex flex-col gap-2">
             <div class="flex items-center justify-between">
               <span class="font-medium text-emerald-400">BUY {{ trade.asset?.symbol }}</span>
-              <span class="text-neutral-400">{{ formatoDinero(trade.entry_price) }} · {{ formatoFecha(trade.opened_at) }}</span>
+              <span class="text-neutral-400">{{ formatoPrecio(trade.entry_price) }} · {{ formatoFecha(trade.opened_at) }}</span>
             </div>
             <template v-if="trade.status === 'closed'">
               <div class="flex items-center justify-between">
                 <span class="font-medium text-red-400">SELL {{ trade.asset?.symbol }}</span>
-                <span class="text-neutral-400">{{ formatoDinero(trade.exit_price) }} · {{ formatoFecha(trade.closed_at) }}</span>
+                <span class="text-neutral-400">{{ formatoPrecio(trade.exit_price) }} · {{ formatoFecha(trade.closed_at) }}</span>
               </div>
               <div class="flex items-center justify-between border-t border-neutral-700/60 pt-2">
                 <span class="text-neutral-500">Resultado</span>

@@ -30,6 +30,7 @@ final class ActiveTradingCyclePresenter
     public static function summarize(ActiveTradingCycle $cycle): array
     {
         $remainingSeconds = self::remainingSeconds($cycle);
+        $maxHoldingRemainingSeconds = self::maxHoldingRemainingSeconds($cycle);
         $lastEvent = $cycle->botEvents->first();
 
         return [
@@ -41,6 +42,8 @@ final class ActiveTradingCyclePresenter
             'expires_at' => $cycle->expires_at,
             'remaining_seconds' => $remainingSeconds,
             'remaining_human' => self::remainingHuman($remainingSeconds),
+            'max_holding_remaining_seconds' => $maxHoldingRemainingSeconds,
+            'max_holding_remaining_human' => $maxHoldingRemainingSeconds === null ? null : self::remainingHuman($maxHoldingRemainingSeconds),
             'next_review_at' => $cycle->activeStrategy?->nextEvaluationAt(),
             'last_event' => $lastEvent === null ? null : [
                 'event_type' => $lastEvent->event_type,
@@ -78,6 +81,34 @@ final class ActiveTradingCyclePresenter
         }
 
         return max(0, $cycle->expires_at->getTimestamp() - CarbonImmutable::now()->getTimestamp());
+    }
+
+    /**
+     * Seconds left before the open position is closed by the `max holding`
+     * risk exit (see `trading.risk_exit.max_holding_hours` and
+     * {@see AutomaticTradingCycle::handleRiskExit()}), counted from the open
+     * trade's `opened_at`. Null when the cycle is not POSITION_OPEN, has no
+     * open trade, or the rule is disabled. Never negative: at 0 the position
+     * is closed by the next scheduled evaluation, not at that exact instant.
+     * Expects `activeStrategy.trades` to be loaded.
+     */
+    public static function maxHoldingRemainingSeconds(ActiveTradingCycle $cycle): ?int
+    {
+        $maxHoldingHours = (int) config('trading.risk_exit.max_holding_hours');
+
+        if ($cycle->state !== ActiveTradingCycleState::PositionOpen || $maxHoldingHours <= 0) {
+            return null;
+        }
+
+        $openTrade = $cycle->activeStrategy?->trades->firstWhere('status', 'open');
+
+        if ($openTrade === null) {
+            return null;
+        }
+
+        $deadline = $openTrade->opened_at->copy()->addHours($maxHoldingHours);
+
+        return max(0, $deadline->getTimestamp() - CarbonImmutable::now()->getTimestamp());
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Models\ActiveStrategy;
 use App\Models\ActiveTradingCycle;
 use App\Models\Asset;
 use App\Models\BotEvent;
+use App\Models\Order;
 use App\Models\RiskSetting;
 use App\Models\Strategy;
 use App\Models\Trade;
@@ -81,10 +82,11 @@ class AutomaticTradingCycleTest extends TestCase
 
     public function test_a_sell_closes_the_position_and_a_later_sustained_uptrend_may_buy_again(): void
     {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         $active = $this->activeStrategy();
 
         $this->process($active, $this->risingCandles());
-        $this->process($active, $this->fallingCandles());
+        $this->processConfirmedSell($active);
         $this->assertSame('closed', Trade::query()->sole()->status);
 
         $this->process($active, ['100', '100', '100', '100', '110', '112']);
@@ -105,10 +107,11 @@ class AutomaticTradingCycleTest extends TestCase
 
     public function test_a_sell_signal_closes_an_existing_open_position(): void
     {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         $active = $this->activeStrategy();
 
         $this->process($active, $this->risingCandles());
-        $this->process($active, $this->fallingCandles());
+        $this->processConfirmedSell($active);
 
         $trade = Trade::query()->sole();
         $this->assertSame('closed', $trade->status);
@@ -133,10 +136,11 @@ class AutomaticTradingCycleTest extends TestCase
 
     public function test_it_records_bot_events_for_opening_and_closing_positions(): void
     {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         $active = $this->activeStrategy();
 
         $this->process($active, $this->risingCandles());
-        $this->process($active, $this->fallingCandles());
+        $this->processConfirmedSell($active);
 
         $this->assertDatabaseHas('bot_events', ['event_type' => 'position_opened']);
         $this->assertDatabaseHas('bot_events', ['event_type' => 'position_closed']);
@@ -166,11 +170,12 @@ class AutomaticTradingCycleTest extends TestCase
      */
     public function test_a_sell_signal_moves_a_linked_position_open_cycle_to_closed(): void
     {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         $active = $this->activeStrategy();
         $cycle = $this->linkedCycle($active);
 
         $this->process($active, $this->risingCandles());
-        $this->process($active, $this->fallingCandles());
+        $this->processConfirmedSell($active);
 
         $this->assertSame(ActiveTradingCycleState::Closed, $cycle->fresh()->state);
         $this->assertDatabaseHas('bot_events', ['event_type' => 'cycle_closed', 'active_trading_cycle_id' => $cycle->id]);
@@ -184,11 +189,12 @@ class AutomaticTradingCycleTest extends TestCase
      */
     public function test_a_sell_that_closes_a_cycle_also_stops_its_active_strategy(): void
     {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         $active = $this->activeStrategy();
         $this->linkedCycle($active);
 
         $this->process($active, $this->risingCandles());
-        $this->process($active, $this->fallingCandles());
+        $this->processConfirmedSell($active);
 
         $fresh = $active->fresh();
         $this->assertSame(ActiveStrategy::STATUS_STOPPED, $fresh->status);
@@ -225,10 +231,11 @@ class AutomaticTradingCycleTest extends TestCase
      */
     public function test_an_active_strategy_with_no_linked_cycle_processes_exactly_as_before(): void
     {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
         $active = $this->activeStrategy();
 
         $this->process($active, $this->risingCandles());
-        $this->process($active, $this->fallingCandles());
+        $this->processConfirmedSell($active);
 
         $trade = Trade::query()->sole();
         $this->assertSame('closed', $trade->status);
@@ -377,21 +384,150 @@ class AutomaticTradingCycleTest extends TestCase
     }
 
     /**
-     * Priority: a strategy SELL closes the position without any risk event
-     * even when the stop loss would also apply (110 -> 90).
+     * Priority: on the confirmation candle the confirmed SELL closes the
+     * position without any risk event even when the stop loss would also
+     * apply (entry 110, 20% stop loss: 90 is -18.2%, 85 is -22.7%).
      */
-    public function test_a_strategy_sell_has_priority_over_risk_exits(): void
+    public function test_a_confirmed_sell_has_priority_over_risk_exits(): void
     {
-        config(['trading.risk_exit.stop_loss_percent' => '2', 'trading.risk_exit.max_holding_hours' => 3]);
+        config(['trading.risk_exit.stop_loss_percent' => '20', 'trading.risk_exit.max_holding_hours' => 3]);
         $active = $this->activeStrategy();
 
         $this->process($active, $this->risingCandles());
         $this->process($active, $this->fallingCandles());
+        $this->process($active, $this->confirmedFallingCandles());
 
         $this->assertSame('closed', Trade::query()->sole()->status);
         $this->assertDatabaseHas('bot_events', ['event_type' => 'position_closed']);
         $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_stop_loss']);
         $this->assertDatabaseMissing('bot_events', ['event_type' => 'risk_time_exit']);
+    }
+
+    /**
+     * A risk exit that closes the position on the crossover candle also
+     * drops the pending SELL, recorded as a cancellation.
+     */
+    public function test_a_risk_exit_cancels_the_pending_sell(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '2', 'trading.risk_exit.max_holding_hours' => 3]);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles()); // 90 is -18% from 110
+
+        $this->assertSame('closed', Trade::query()->sole()->status);
+        $this->assertNull($active->fresh()->pending_sell_candle_at);
+        $this->assertSame(1, $this->events('signal_sell_pending_confirmation'));
+        $this->assertSame(1, $this->events('signal_sell_confirmation_cancelled'));
+        $this->assertSame(0, $this->events('signal_sell_confirmed'));
+        $this->assertSame('risk_exit', BotEvent::query()->where('event_type', 'signal_sell_confirmation_cancelled')->sole()->data['reason']);
+    }
+
+    /**
+     * Experiment: a bearish crossover (candle A) no longer sells at once.
+     */
+    public function test_a_bearish_crossover_leaves_the_sell_pending_and_does_not_sell(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+
+        $this->assertSame('open', Trade::query()->sole()->status);
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'position_closed']);
+        $this->assertSame(1, $this->events('signal_sell_pending_confirmation'));
+        $this->assertNotNull($active->fresh()->pending_sell_candle_at);
+    }
+
+    public function test_the_next_candle_still_bearish_confirms_and_executes_the_sell_once(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        $this->process($active, $this->confirmedFallingCandles());
+
+        $trade = Trade::query()->sole();
+        $this->assertSame('closed', $trade->status);
+        $this->assertSame(0, bccomp('85', (string) $trade->exit_price, 8));
+        $this->assertSame(1, $this->events('signal_sell_confirmed'));
+        $this->assertSame(0, $this->events('signal_sell_confirmation_cancelled'));
+        $this->assertSame(1, $this->events('position_closed'));
+        $this->assertSame(1, Order::query()->where('side', 'sell')->count());
+        $this->assertNull($active->fresh()->pending_sell_candle_at);
+    }
+
+    public function test_the_next_candle_recovering_cancels_the_sell_and_keeps_the_position(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        $this->process($active, $this->recoveredCandles());
+
+        $this->assertSame('open', Trade::query()->sole()->status);
+        $this->assertSame(1, $this->events('signal_sell_confirmation_cancelled'));
+        $this->assertSame('recovered', BotEvent::query()->where('event_type', 'signal_sell_confirmation_cancelled')->sole()->data['reason']);
+        $this->assertSame(0, $this->events('signal_sell_confirmed'));
+        $this->assertDatabaseMissing('bot_events', ['event_type' => 'position_closed']);
+        $this->assertNull($active->fresh()->pending_sell_candle_at);
+    }
+
+    /**
+     * Only closed candles are ever passed in (BinanceMarketDataProvider drops
+     * the forming one): re-evaluating the very same crossover candle, as the
+     * scheduler may do, must neither confirm nor register it a second time.
+     */
+    public function test_re_evaluating_the_crossover_candle_neither_confirms_nor_duplicates_the_pending_sell(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        $this->process($active, $this->fallingCandles());
+
+        $this->assertSame('open', Trade::query()->sole()->status);
+        $this->assertSame(1, $this->events('signal_sell_pending_confirmation'));
+        $this->assertSame(0, $this->events('signal_sell_confirmed'));
+        $this->assertNotNull($active->fresh()->pending_sell_candle_at);
+    }
+
+    /**
+     * A scheduler run that skipped a candle still decides on the candle
+     * right after the crossover (candle B), not on the newest one: B below
+     * confirms even though the newest candle has already recovered.
+     */
+    public function test_the_confirmation_uses_the_candle_right_after_the_crossover_even_if_newer_candles_exist(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        $this->process($active, ['110', '110', '110', '110', '90', '85', '200']);
+
+        $this->assertSame('closed', Trade::query()->sole()->status);
+        $this->assertSame(1, $this->events('signal_sell_confirmed'));
+    }
+
+    public function test_a_pending_sell_is_dropped_when_the_position_is_no_longer_open(): void
+    {
+        config(['trading.risk_exit.stop_loss_percent' => '0']);
+        $active = $this->activeStrategy();
+
+        $this->process($active, $this->risingCandles());
+        $this->process($active, $this->fallingCandles());
+        Trade::query()->sole()->update(['status' => 'closed']);
+        $this->process($active, $this->confirmedFallingCandles());
+
+        $this->assertSame(0, $this->events('signal_sell_confirmed'));
+        $this->assertSame(1, $this->events('signal_sell_confirmation_cancelled'));
+        $this->assertSame(0, Order::query()->where('side', 'sell')->count());
+        $this->assertNull($active->fresh()->pending_sell_candle_at);
     }
 
     /**
@@ -428,6 +564,11 @@ class AutomaticTradingCycleTest extends TestCase
 
         $this->assertDatabaseCount('trades', 0);
         $this->assertDatabaseHas('bot_events', ['event_type' => 'signal_rejected_insufficient_capital']);
+    }
+
+    private function events(string $eventType): int
+    {
+        return BotEvent::query()->where('event_type', $eventType)->count();
     }
 
     private function assertEventBefore(string $first, string $second): void
@@ -477,6 +618,16 @@ class AutomaticTradingCycleTest extends TestCase
             'capital' => '1000',
             'status' => ActiveStrategy::STATUS_RUNNING,
         ]);
+    }
+
+    /**
+     * Closes the position the way the experiment now does it: a bearish
+     * crossover candle (pending SELL) followed by a candle still bearish.
+     */
+    private function processConfirmedSell(ActiveStrategy $active): void
+    {
+        $this->process($active, $this->fallingCandles());
+        $this->process($active, $this->confirmedFallingCandles());
     }
 
     private function process(ActiveStrategy $active, array $closes): void
@@ -534,5 +685,27 @@ class AutomaticTradingCycleTest extends TestCase
     private function fallingCandles(): array
     {
         return ['110', '110', '110', '110', '90'];
+    }
+
+    /**
+     * fallingCandles() plus one more candle that keeps the short SMA (2)
+     * below the long SMA (4): the SELL confirmation candle.
+     *
+     * @return string[]
+     */
+    private function confirmedFallingCandles(): array
+    {
+        return ['110', '110', '110', '110', '90', '85'];
+    }
+
+    /**
+     * fallingCandles() plus one more candle that puts the short SMA (115)
+     * back above the long SMA (112.5): the SELL is cancelled.
+     *
+     * @return string[]
+     */
+    private function recoveredCandles(): array
+    {
+        return ['110', '110', '110', '110', '90', '140'];
     }
 }

@@ -70,6 +70,9 @@ let refrescoIntervalId = null
 const ETIQUETAS_EVENTO = {
   cycle_created: 'Ciclo creado',
   position_opened: 'BUY',
+  signal_sell_pending_confirmation: 'Cruce bajista: SELL pendiente de confirmar',
+  signal_sell_confirmed: 'SELL confirmado',
+  signal_sell_confirmation_cancelled: 'SELL cancelado (la vela siguiente se recuperó)',
   position_closed: 'SELL',
   cycle_closed: 'Ciclo cerrado',
   cycle_expired: 'Ciclo expirado',
@@ -370,7 +373,13 @@ onUnmounted(() => {
               <td class="py-2 pr-3 font-medium">{{ ciclo.symbol ?? '—' }}</td>
               <td class="py-2 pr-3 text-neutral-300">{{ ciclo.strategy_name ?? '—' }}</td>
               <td class="py-2 pr-3" :class="claseEstado(ciclo.status)">{{ etiquetaEstado(ciclo.status) }}</td>
-              <td class="py-2 pr-3 tabular-nums text-neutral-300">{{ ciclo.remaining_human }}</td>
+              <td class="py-2 pr-3 tabular-nums text-neutral-300">
+                <template v-if="ciclo.max_holding_remaining_human !== null">
+                  <span v-if="ciclo.max_holding_remaining_seconds > 0">Máximo restante: {{ ciclo.max_holding_remaining_human }}</span>
+                  <span v-else class="text-amber-400">Máximo alcanzado: cierre en la próxima revisión</span>
+                </template>
+                <template v-else>{{ ciclo.remaining_human }}</template>
+              </td>
               <td class="py-2 pr-3 text-neutral-400">{{ ciclo.last_event?.message ?? '—' }}</td>
               <td class="py-2 pr-3 text-neutral-400">{{ ciclo.next_review_at ? formatoHora(ciclo.next_review_at) : '—' }}</td>
               <td class="py-2 text-right whitespace-nowrap">

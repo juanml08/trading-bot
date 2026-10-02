@@ -18,7 +18,7 @@ class ActiveTradingCycleController extends Controller
     {
         $cycleModel = TradingAccount::current()
             ->activeTradingCycles()
-            ->with(['asset', 'strategy', 'activeStrategy', 'botEvents'])
+            ->with(['asset', 'strategy', 'activeStrategy.trades' => fn ($query) => $query->where('status', 'open'), 'botEvents'])
             ->find($cycle);
 
         if ($cycleModel === null) {

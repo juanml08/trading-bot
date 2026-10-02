@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * `timeframe`, `capital` and the related {@see Strategy} back from the
  * database instead of keeping them in memory.
  */
-#[Fillable(['account_id', 'strategy_id', 'symbol', 'timeframe', 'capital', 'mode', 'status', 'started_at', 'stopped_at', 'last_evaluated_at'])]
+#[Fillable(['account_id', 'strategy_id', 'symbol', 'timeframe', 'capital', 'mode', 'status', 'started_at', 'stopped_at', 'last_evaluated_at', 'pending_sell_candle_at'])]
 class ActiveStrategy extends Model
 {
     /** @use HasFactory<ActiveStrategyFactory> */
@@ -51,6 +51,7 @@ class ActiveStrategy extends Model
             'started_at' => 'datetime',
             'stopped_at' => 'datetime',
             'last_evaluated_at' => 'datetime',
+            'pending_sell_candle_at' => 'datetime',
         ];
     }
 

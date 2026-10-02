@@ -35,7 +35,7 @@ class ActiveTradingCyclesController extends Controller
         // ActiveTradingCycle::botEvents()), so this stays correct and simple.
         $cycles = TradingAccount::current()
             ->activeTradingCycles()
-            ->with(['asset', 'strategy', 'activeStrategy', 'botEvents'])
+            ->with(['asset', 'strategy', 'activeStrategy.trades' => fn ($query) => $query->where('status', 'open'), 'botEvents'])
             ->latest('id')
             ->limit(self::LIMIT)
             ->get();

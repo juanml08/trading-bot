@@ -15,6 +15,7 @@ use App\Models\Trade;
 use App\Risk\RiskManager;
 use App\Strategy\Signal;
 use App\Strategy\SignalType;
+use App\Strategy\Strategy;
 use App\Strategy\StrategyFactory;
 use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
@@ -64,7 +65,8 @@ final class AutomaticTradingCycle
     {
         $strategy = StrategyFactory::fromModel($active->strategy);
         $signal = $strategy->generate($candles);
-        $currentPrice = $candles[array_key_last($candles)]->close;
+        $lastCandle = $candles[array_key_last($candles)];
+        $currentPrice = $lastCandle->close;
         $asset = $this->resolveAsset($active->symbol);
         $cycle = $this->resolveCycle($active);
 
@@ -73,10 +75,19 @@ final class AutomaticTradingCycle
             'price' => $currentPrice,
         ]);
 
-        if ($signal->type === SignalType::SELL) {
-            $this->handleSell($active, $cycle, $asset, $currentPrice);
-
+        if ($active->pending_sell_candle_at !== null
+            && $this->resolvePendingSell($active, $cycle, $asset, $strategy, $candles, $currentPrice)) {
             return;
+        }
+
+        if ($signal->type === SignalType::SELL) {
+            if ($this->openTrade($active, $asset) === null) {
+                $this->handleSell($active, $cycle, $asset, $currentPrice);
+
+                return;
+            }
+
+            $this->registerPendingSell($active, $cycle, $asset, $lastCandle, $currentPrice);
         }
 
         if ($this->handleRiskExit($active, $cycle, $asset, $currentPrice)) {
@@ -86,6 +97,107 @@ final class AutomaticTradingCycle
         if ($signal->type === SignalType::BUY) {
             $this->handleBuy($active, $cycle, $asset, $signal, $currentPrice);
         }
+    }
+
+    /**
+     * Experiment: a bearish crossover does not sell immediately. The closed
+     * candle that shows it (candle A) only leaves the SELL pending; the
+     * following closed candle (candle B) confirms or cancels it. A crossover
+     * already pending for this same candle (the scheduler re-evaluating the
+     * same closed candle) is not registered twice.
+     */
+    private function registerPendingSell(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, Candle $candle, string $currentPrice): void
+    {
+        if ($active->pending_sell_candle_at?->equalTo($candle->timestamp)) {
+            return;
+        }
+
+        $active->update(['pending_sell_candle_at' => $candle->timestamp]);
+
+        $this->recordEvent($active, $cycle, 'signal_sell_pending_confirmation', $asset->symbol,
+            "Cruce bajista en {$asset->symbol}: SELL pendiente de confirmación en la siguiente vela cerrada.",
+            ['candle_at' => $candle->timestamp->toIso8601String(), 'price' => $currentPrice]);
+    }
+
+    /**
+     * Resolves the pending SELL using only the closed candle that immediately
+     * follows the crossover candle (candle B), even if the scheduler skipped
+     * a run and newer candles exist by now. B still below (any signal other
+     * than BUY, i.e. short <= long) confirms and executes the SELL; B above
+     * (BUY, short > long) cancels it. A pending SELL ends here exactly once
+     * (handleSell() and cancelPendingSell() both clear it), so it can never
+     * produce more than one SELL.
+     *
+     * @param  Candle[]  $candles
+     * @return bool whether the position was sold
+     */
+    private function resolvePendingSell(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, Strategy $strategy, array $candles, string $currentPrice): bool
+    {
+        $pendingAt = $active->pending_sell_candle_at;
+
+        if ($this->openTrade($active, $asset) === null) {
+            $this->cancelPendingSell($active, $cycle, $asset, 'no_open_position');
+
+            return false;
+        }
+
+        $crossoverIndex = null;
+        foreach ($candles as $index => $candle) {
+            if ($candle->timestamp->equalTo($pendingAt)) {
+                $crossoverIndex = $index;
+                break;
+            }
+        }
+
+        if ($crossoverIndex === null) {
+            $this->cancelPendingSell($active, $cycle, $asset, 'crossover_candle_not_available');
+
+            return false;
+        }
+
+        if (! isset($candles[$crossoverIndex + 1])) {
+            return false;
+        }
+
+        $confirmation = $strategy->generate(array_slice($candles, 0, $crossoverIndex + 2));
+
+        if ($confirmation->type === SignalType::BUY) {
+            $this->cancelPendingSell($active, $cycle, $asset, 'recovered');
+
+            return false;
+        }
+
+        $this->recordEvent($active, $cycle, 'signal_sell_confirmed', $asset->symbol,
+            "SELL confirmado en {$asset->symbol}: la vela siguiente sigue con la media corta por debajo de la larga.",
+            [
+                'crossover_candle_at' => $pendingAt->toIso8601String(),
+                'confirmation_candle_at' => $candles[$crossoverIndex + 1]->timestamp->toIso8601String(),
+            ]);
+
+        $this->handleSell($active, $cycle, $asset, $currentPrice);
+
+        return true;
+    }
+
+    /**
+     * Drops a pending SELL without selling. $reason: `recovered` (the next
+     * candle put the short average back above the long one), `risk_exit`
+     * (stop loss / max holding closed the position first), `no_open_position`
+     * or `crossover_candle_not_available`.
+     */
+    private function cancelPendingSell(ActiveStrategy $active, ?ActiveTradingCycleModel $cycle, Asset $asset, string $reason): void
+    {
+        $crossoverAt = $active->pending_sell_candle_at;
+
+        if ($crossoverAt === null) {
+            return;
+        }
+
+        $active->update(['pending_sell_candle_at' => null]);
+
+        $this->recordEvent($active, $cycle, 'signal_sell_confirmation_cancelled', $asset->symbol,
+            "SELL cancelado en {$asset->symbol}: no se confirmó en la vela siguiente ({$reason}).",
+            ['crossover_candle_at' => $crossoverAt->toIso8601String(), 'reason' => $reason]);
     }
 
     /**
@@ -113,6 +225,7 @@ final class AutomaticTradingCycle
                 $this->recordEvent($active, $cycle, 'risk_stop_loss', $asset->symbol,
                     "Stop loss: {$asset->symbol} perdió {$lossPercent}% desde la entrada (límite {$stopLossPercent}%).",
                     ['trade_id' => $trade->id, 'loss_percent' => $lossPercent]);
+                $this->cancelPendingSell($active, $cycle, $asset, 'risk_exit');
                 $this->handleSell($active, $cycle, $asset, $currentPrice);
 
                 return true;
@@ -123,6 +236,7 @@ final class AutomaticTradingCycle
             $this->recordEvent($active, $cycle, 'risk_time_exit', $asset->symbol,
                 "Salida por tiempo: {$asset->symbol} lleva abierta {$maxHoldingHours}h o más.",
                 ['trade_id' => $trade->id, 'max_holding_hours' => $maxHoldingHours]);
+            $this->cancelPendingSell($active, $cycle, $asset, 'risk_exit');
             $this->handleSell($active, $cycle, $asset, $currentPrice);
 
             return true;
@@ -244,6 +358,8 @@ final class AutomaticTradingCycle
 
             return;
         }
+
+        $active->update(['pending_sell_candle_at' => null]);
 
         $execution = $this->executor->sell($asset->symbol, $currentPrice, $trade->quantity);
 

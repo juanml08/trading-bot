@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActiveStrategy;
+use App\Models\BotEvent;
 use App\Models\Trade;
 use App\Models\TradingAccount;
 use Illuminate\Http\JsonResponse;
@@ -39,12 +40,7 @@ class AutomaticModeStatusController extends Controller
                 'lastEvaluatedAt' => $active->last_evaluated_at,
                 'nextDueAt' => $active->nextEvaluationAt(),
             ],
-            'openPosition' => $openTrade === null ? null : [
-                'symbol' => $openTrade->asset->symbol,
-                'entryPrice' => $openTrade->entry_price,
-                'capitalUsed' => $openTrade->capital_used,
-                'openedAt' => $openTrade->opened_at,
-            ],
+            'openPosition' => $openTrade === null ? null : $this->openPosition($openTrade),
             'automaticSearch' => $automaticSearch === null ? null : [
                 'status' => $automaticSearch->status,
                 'symbol' => $automaticSearch->symbol,
@@ -54,6 +50,48 @@ class AutomaticModeStatusController extends Controller
                 'lastCycle' => $automaticSearch->last_cycle,
             ],
         ]);
+    }
+
+    /**
+     * The open position plus what the UI needs to value it, all read-only
+     * (no financial logic changes):
+     *
+     * - `currentPrice`/`currentPriceAt`: the close price of the last candle the
+     *   bot evaluated for this asset (its `candle_processed` event), NOT a live
+     *   ticker — so `unrealizedProfitLoss` is approximate, as of that moment.
+     * - `maxHoldingExpiresAt`: `opened_at` + `trading.risk_exit.max_holding_hours`
+     *   (null when the rule is disabled). The position is closed by the first
+     *   evaluation at or after that moment.
+     *
+     * @return array<string, mixed>
+     */
+    private function openPosition(Trade $trade): array
+    {
+        $lastEvaluation = BotEvent::query()
+            ->where('account_id', $trade->account_id)
+            ->where('asset', $trade->asset->symbol)
+            ->where('event_type', 'candle_processed')
+            ->where('created_at', '>=', $trade->opened_at)
+            ->latest('id')
+            ->first();
+
+        $currentPrice = $lastEvaluation?->data['price'] ?? null;
+        $maxHoldingHours = (int) config('trading.risk_exit.max_holding_hours');
+
+        return [
+            'symbol' => $trade->asset->symbol,
+            'entryPrice' => $trade->entry_price,
+            'capitalUsed' => $trade->capital_used,
+            'openedAt' => $trade->opened_at,
+            'quantity' => $trade->quantity,
+            'currentPrice' => $currentPrice,
+            'currentPriceAt' => $lastEvaluation?->created_at,
+            'unrealizedProfitLoss' => $currentPrice === null
+                ? null
+                : bcsub(bcmul((string) $trade->quantity, (string) $currentPrice, 8), (string) $trade->capital_used, 8),
+            'maxHoldingHours' => $maxHoldingHours,
+            'maxHoldingExpiresAt' => $maxHoldingHours > 0 ? $trade->opened_at->copy()->addHours($maxHoldingHours) : null,
+        ];
     }
 
     /**
