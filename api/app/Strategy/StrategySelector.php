@@ -21,11 +21,13 @@ namespace App\Strategy;
  *
  * - No candidates left: returns null.
  * - Exactly one left: it is selected.
- * - More than one left (none dominates the others): returns null. This is
- *   deliberate — the available metrics do not show a clear enough
- *   difference to prefer one candidate over another, and picking one
- *   arbitrarily (e.g. by profit alone) would misrepresent that as an
- *   informed decision.
+ * - More than one left (none dominates the others): the Pareto front is a
+ *   set of trade-offs (e.g. more trades but lower profit), so dominance
+ *   alone cannot choose between them. In practice this was the common case
+ *   (~3 of 4 assets with validated strategies ended with no selection), so
+ *   {@see breakTie()} picks one deterministically from the front only —
+ *   never a dominated candidate. That pick is a tie-break, not evidence that
+ *   the chosen candidate is better than the others on the front.
  *
  * This is a deliberately conservative first version. It does not evaluate
  * strategies, does not touch historical data, brokers, or persistence, and
@@ -47,7 +49,42 @@ final class StrategySelector
     {
         $nonDominated = $this->rejectDominated($survivors);
 
-        return count($nonDominated) === 1 ? array_values($nonDominated)[0]->candidate : null;
+        if ($nonDominated === []) {
+            return null;
+        }
+
+        return count($nonDominated) === 1
+            ? array_values($nonDominated)[0]->candidate
+            : $this->breakTie($nonDominated);
+    }
+
+    /**
+     * Resolves a Pareto front with several members using only metrics the
+     * dominance comparison already reads (no new score): highest validation
+     * profit/loss percentage first — profit is the objective the bot exists
+     * for, while win rate, drawdown and trade count were already gated by
+     * the Discovery/Validation thresholds — then lowest drawdown, highest
+     * win rate, most trades, and finally the strategy name, so the result
+     * never depends on input order.
+     *
+     * @param  array<string, ValidationResult>  $nonDominated
+     */
+    private function breakTie(array $nonDominated): StrategyCandidate
+    {
+        $results = array_values($nonDominated);
+
+        usort($results, function (ValidationResult $a, ValidationResult $b): int {
+            $evaluationA = $a->validationEvaluation;
+            $evaluationB = $b->validationEvaluation;
+
+            return bccomp($evaluationB->profitLossPercentage, $evaluationA->profitLossPercentage, 18)
+                ?: bccomp($evaluationA->maxDrawdownPercentage, $evaluationB->maxDrawdownPercentage, 18)
+                ?: bccomp($evaluationB->winRate, $evaluationA->winRate, 18)
+                ?: $evaluationB->totalTrades <=> $evaluationA->totalTrades
+                ?: strcmp($a->candidate->strategyName, $b->candidate->strategyName);
+        });
+
+        return $results[0]->candidate;
     }
 
     /**

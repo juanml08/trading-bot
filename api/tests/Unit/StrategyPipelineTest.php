@@ -139,7 +139,7 @@ class StrategyPipelineTest extends TestCase
         $this->assertNull($result->selectedCandidate);
     }
 
-    public function test_several_candidates_passing_validation_with_no_clear_winner_yields_no_selection(): void
+    public function test_several_candidates_passing_validation_with_tied_metrics_resolve_by_strategy_name(): void
     {
         $trainCloses = ['100', '101', '102', '103', '104', '105', '106', '107'];
         $validationCloses = ['300', '301', '302', '303', '304', '305', '306', '307'];
@@ -147,7 +147,7 @@ class StrategyPipelineTest extends TestCase
 
         // Two independently constructed strategies with identical behaviour and
         // fed the identical candles produce tied metrics: neither dominates the
-        // other, so StrategySelector's existing ambiguity rule applies.
+        // other, so StrategySelector's tie-break applies (down to strategy name).
         $signals = [1 => SignalType::BUY, 2 => SignalType::SELL, 4 => SignalType::BUY, 6 => SignalType::SELL];
         $strategyOne = new PositionalSignalStrategy($signals);
         $strategyTwo = new PositionalSignalStrategy($signals);
@@ -159,7 +159,7 @@ class StrategyPipelineTest extends TestCase
         $this->assertCount(2, $result->validationResults);
         $this->assertTrue($result->validationResults[0]->passed);
         $this->assertTrue($result->validationResults[1]->passed);
-        $this->assertNull($result->selectedCandidate);
+        $this->assertSame('One', $result->selectedCandidate?->strategyName);
     }
 
     public function test_validation_fails_specifically_on_maximum_drawdown_while_meeting_every_other_criterion(): void

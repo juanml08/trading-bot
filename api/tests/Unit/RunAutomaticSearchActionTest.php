@@ -30,6 +30,7 @@ use App\Strategy\StrategySelector;
 use App\Strategy\TrainValidationSplit;
 use App\Trading\ActiveTradingCycleState;
 use Carbon\CarbonImmutable;
+use Database\Seeders\StrategySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\TestCase;
@@ -361,14 +362,12 @@ class RunAutomaticSearchActionTest extends TestCase
 
     /**
      * Two candidates that both pass VALIDATION with tied metrics dominate
-     * neither each other, so {@see StrategySelector} deliberately selects
-     * none (see its own docblock) — the diagnostic breakdown must reflect
-     * that as "validated_not_selected" for both, and this diagnostic layer
-     * must not change that outcome: still no ActiveStrategy is created and
-     * the cycle still reports 0 candidates found, exactly as before this
-     * per-strategy detail existed.
+     * neither each other, so {@see StrategySelector} breaks the tie (down to
+     * strategy name, see its own docblock) — the diagnostic breakdown must
+     * reflect that as "selected" for "One" and "validated_not_selected" for
+     * "Two", and the cycle reports 1 candidate found.
      */
-    public function test_records_validated_not_selected_status_for_tied_survivors_without_changing_the_decision(): void
+    public function test_records_selected_and_validated_not_selected_status_for_tied_survivors(): void
     {
         // TRAIN: steady rise, both strategies clear every criterion.
         $trainCloses = ['100', '101', '102', '103', '104', '105', '106', '107'];
@@ -397,21 +396,22 @@ class RunAutomaticSearchActionTest extends TestCase
         $action = new RunAutomaticSearchAction($searchAction, new ActivateTradingCycleAction(new ActivateStrategyAction), new StartAutomaticModeAction, $scanner, $strategies);
 
         $state = AutomaticSearchState::factory()->create();
+        StrategyModel::factory()->create(['name' => 'One']);
 
         $action($state);
 
-        $this->assertSame(0, ActiveStrategy::query()->count());
+        $this->assertSame(1, ActiveStrategy::query()->count());
 
         $lastCycle = $state->fresh()->last_cycle;
-        $this->assertSame(0, $lastCycle['candidatesFound']);
-        $this->assertSame('discarded', $lastCycle['assets'][0]['status']);
+        $this->assertSame(1, $lastCycle['candidatesFound']);
+        $this->assertSame('candidate_found', $lastCycle['assets'][0]['status']);
 
         $byName = [];
         foreach ($lastCycle['assets'][0]['strategies'] as $strategy) {
             $byName[$strategy['name']] = $strategy;
         }
 
-        $this->assertSame('validated_not_selected', $byName['One']['status']);
+        $this->assertSame('selected', $byName['One']['status']);
         $this->assertSame('validated_not_selected', $byName['Two']['status']);
         $this->assertTrue($byName['One']['validation']['passed']);
         $this->assertTrue($byName['Two']['validation']['passed']);
@@ -450,6 +450,9 @@ class RunAutomaticSearchActionTest extends TestCase
     public function test_defaults_to_the_discovery_strategy_catalog_when_none_is_given(): void
     {
         $state = AutomaticSearchState::factory()->create(['symbol' => 'BTCUSDT']);
+        // Selection can now pick a candidate out of the whole catalog, and
+        // activating it requires its `strategies` row (seeded in production).
+        $this->seed(StrategySeeder::class);
 
         $provider = new RunAutomaticSearchActionFakeMarketDataProvider($this->candles());
         $pipeline = new StrategyPipeline(

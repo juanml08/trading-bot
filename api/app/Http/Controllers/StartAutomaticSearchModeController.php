@@ -31,6 +31,7 @@ class StartAutomaticSearchModeController extends Controller
     public function __invoke(StartAutomaticSearchRequest $request): JsonResponse
     {
         set_time_limit(0);
+        ini_set('memory_limit', '1G');
 
         $action = $this->buildAction();
 

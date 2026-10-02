@@ -46,7 +46,7 @@ class StrategySelectorTest extends TestCase
         $this->assertSame($b->candidate, $selector->select(['A' => $a, 'B' => $b]));
     }
 
-    public function test_two_candidates_where_neither_dominates_the_other_select_nothing(): void
+    public function test_two_candidates_where_neither_dominates_the_other_are_resolved_by_highest_profit(): void
     {
         $selector = new StrategySelector;
 
@@ -54,7 +54,7 @@ class StrategySelectorTest extends TestCase
         $a = $this->survivor('A', profitLossPercentage: '20', maxDrawdownPercentage: '15', winRate: '55', totalTrades: 20);
         $b = $this->survivor('B', profitLossPercentage: '10', maxDrawdownPercentage: '5', winRate: '55', totalTrades: 20);
 
-        $this->assertNull($selector->select(['A' => $a, 'B' => $b]));
+        $this->assertSame($a->candidate, $selector->select(['A' => $a, 'B' => $b]));
     }
 
     public function test_a_candidate_that_dominates_the_other_two_is_selected(): void
@@ -68,7 +68,7 @@ class StrategySelectorTest extends TestCase
         $this->assertSame($a->candidate, $selector->select(['A' => $a, 'B' => $b, 'C' => $c]));
     }
 
-    public function test_several_candidates_with_similar_undifferentiated_results_select_nothing(): void
+    public function test_several_non_dominated_candidates_select_the_one_with_highest_profit(): void
     {
         $selector = new StrategySelector;
 
@@ -78,7 +78,45 @@ class StrategySelectorTest extends TestCase
         $b = $this->survivor('B', profitLossPercentage: '15', maxDrawdownPercentage: '6', winRate: '58', totalTrades: 22);
         $c = $this->survivor('C', profitLossPercentage: '18', maxDrawdownPercentage: '8', winRate: '60', totalTrades: 18);
 
-        $this->assertNull($selector->select(['A' => $a, 'B' => $b, 'C' => $c]));
+        $this->assertSame($a->candidate, $selector->select(['A' => $a, 'B' => $b, 'C' => $c]));
+    }
+
+    public function test_the_tie_break_never_picks_a_dominated_candidate(): void
+    {
+        $selector = new StrategySelector;
+
+        // D ties A on profit (the first tie-break criterion) but A beats it
+        // on every other one, so A dominates D: only the front {A, B} is
+        // ever considered by the tie-break.
+        $a = $this->survivor('A', profitLossPercentage: '20', maxDrawdownPercentage: '5', winRate: '60', totalTrades: 20);
+        $b = $this->survivor('B', profitLossPercentage: '10', maxDrawdownPercentage: '2', winRate: '60', totalTrades: 20);
+        $d = $this->survivor('D', profitLossPercentage: '20', maxDrawdownPercentage: '9', winRate: '55', totalTrades: 18);
+
+        $this->assertSame($a->candidate, $selector->select(['D' => $d, 'B' => $b, 'A' => $a]));
+    }
+
+    public function test_the_tie_break_falls_back_to_lower_drawdown_when_profit_ties(): void
+    {
+        $selector = new StrategySelector;
+
+        // Equal profit; A has the lower drawdown but fewer trades, so
+        // neither dominates and drawdown breaks the tie.
+        $a = $this->survivor('A', profitLossPercentage: '20', maxDrawdownPercentage: '4', winRate: '60', totalTrades: 10);
+        $b = $this->survivor('B', profitLossPercentage: '20', maxDrawdownPercentage: '8', winRate: '60', totalTrades: 30);
+
+        $this->assertSame($a->candidate, $selector->select(['B' => $b, 'A' => $a]));
+    }
+
+    public function test_the_tie_break_is_independent_of_input_order(): void
+    {
+        $selector = new StrategySelector;
+
+        $a = $this->survivor('A', profitLossPercentage: '20', maxDrawdownPercentage: '10', winRate: '55', totalTrades: 20);
+        $b = $this->survivor('B', profitLossPercentage: '15', maxDrawdownPercentage: '6', winRate: '58', totalTrades: 22);
+        $c = $this->survivor('C', profitLossPercentage: '18', maxDrawdownPercentage: '8', winRate: '60', totalTrades: 18);
+
+        $this->assertSame($a->candidate, $selector->select(['C' => $c, 'B' => $b, 'A' => $a]));
+        $this->assertSame($a->candidate, $selector->select(['B' => $b, 'A' => $a, 'C' => $c]));
     }
 
     public function test_higher_profit_with_much_higher_drawdown_is_not_auto_selected_when_dominated(): void
@@ -124,8 +162,9 @@ class StrategySelectorTest extends TestCase
     /**
      * profitFactor is not one of the Selector's four criteria. Two
      * candidates tied on every criterion the Selector does use, but with
-     * wildly different profitFactor, must remain undecided (null) — proving
-     * profitFactor plays no role in breaking the tie.
+     * wildly different profitFactor, must be resolved by name ("A" before
+     * "B", in either input order) — proving profitFactor plays no role in
+     * breaking the tie.
      */
     public function test_profit_factor_does_not_influence_the_selection(): void
     {
@@ -134,7 +173,8 @@ class StrategySelectorTest extends TestCase
         $a = $this->survivor('A', profitLossPercentage: '20', maxDrawdownPercentage: '5', winRate: '60', totalTrades: 20, profitFactor: '100');
         $b = $this->survivor('B', profitLossPercentage: '20', maxDrawdownPercentage: '5', winRate: '60', totalTrades: 20, profitFactor: '0.01');
 
-        $this->assertNull($selector->select(['A' => $a, 'B' => $b]));
+        $this->assertSame($a->candidate, $selector->select(['A' => $a, 'B' => $b]));
+        $this->assertSame($a->candidate, $selector->select(['B' => $b, 'A' => $a]));
     }
 
     private function survivor(

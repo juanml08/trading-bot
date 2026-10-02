@@ -48,9 +48,21 @@ class AutomaticStrategySearchCommand extends Command
      */
     public function handle(): int
     {
+        // Only this command: a cycle over 30 assets x 400 strategies builds a
+        // ~50 MB diagnostic array that is then JSON-encoded into `last_cycle`
+        // (~8 MB), so the 128 MB CLI default leaves almost no headroom for
+        // the market data in flight. Not raised globally on purpose.
+        ini_set('memory_limit', '512M');
+
         $action = $this->buildAction();
 
+        // `last_cycle` is deliberately not selected: it is write-only here
+        // (RunAutomaticSearchAction overwrites it, never reads it) and can
+        // weigh ~8 MB of JSON, which json-decoded into a PHP array is several
+        // times that — enough, with the new cycle held alongside it, to exhaust
+        // the 128 MB CLI memory_limit (exit code 255).
         $states = AutomaticSearchState::query()
+            ->select(['id', 'account_id', 'symbol', 'timeframe', 'capital', 'mode', 'status', 'last_searched_at', 'next_search_at', 'created_at', 'updated_at'])
             ->where('status', AutomaticSearchState::STATUS_RUNNING)
             ->get();
 
