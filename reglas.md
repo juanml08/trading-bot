@@ -25,3 +25,9 @@ Reglas obligatorias para cualquier agente que trabaje en este proyecto. Deben re
 
 - No asumir que una estrategia es rentable. Toda estrategia debe validarse mediante backtesting o paper trading antes de considerarse válida.
 - No implementar ni habilitar operaciones con dinero real mientras el proyecto no haya sido validado previamente.
+
+## Regla madre del negocio
+
+> **El Trading Bot busca obtener pequeñas ganancias de manera frecuente y consistente, priorizando la preservación del capital y un riesgo bajo sobre la maximización del rendimiento.**
+
+Esta es la regla madre para evaluar cualquier estrategia futura. No se busca maximizar el P/L histórico: se busca una pequeña ventaja repetible (probabilidad, magnitud, riesgo, frecuencia, consistencia y control de pérdidas grandes). Es válido que el bot no opere cuando no exista una oportunidad suficientemente buena.
