@@ -1,0 +1,192 @@
+{
+ "activos": {
+  "BTC": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "ETH": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "BNB": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "XRP": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "SOL": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "ADA": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "DOGE": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "TRX": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "LINK": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "LTC": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "AVAX": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "DOT": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "ETC": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "BCH": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "ATOM": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "NEAR": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "XLM": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "UNI": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "AAVE": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  },
+  "IOTA": {
+   "velas": 10404,
+   "primera": "2022-01-01T00:00:00.000",
+   "ultima": "2026-09-30T20:00:00.000",
+   "huecos": 0,
+   "vol_cero": 0,
+   "ohlc_incoherentes": 0
+  }
+ },
+ "calendario": {
+  "main_T": 7674,
+  "main": {
+   "TRAIN": [
+    "2023-11-03T08:00:00.000",
+    "2025-11-10T16:00:00.000",
+    4431
+   ],
+   "VAL": [
+    "2025-11-13T20:00:00.000",
+    "2026-04-18T16:00:00.000",
+    936
+   ],
+   "TEST": [
+    "2026-04-21T20:00:00.000",
+    "2026-09-27T16:00:00.000",
+    954
+   ]
+  },
+  "pre_T": 3828,
+  "pre": {
+   "TESTPRE": [
+    "2022-10-01T00:00:00.000",
+    "2023-09-27T16:00:00.000",
+    2171
+   ]
+  }
+ }
+}

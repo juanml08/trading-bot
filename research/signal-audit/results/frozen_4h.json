@@ -1,0 +1,170 @@
+{
+ "clasificacion_pre_test": {
+  "A": "C",
+  "B": "C",
+  "C": "C",
+  "D": "C",
+  "E": "C"
+ },
+ "gates": {
+  "A": {
+   "G1": [
+    false,
+    "exceso C 8h -0.131% (p=0.790); TRAIN -0.173%, VAL +0.323%; horizontes con exceso>0: 2/6"
+   ],
+   "G2": [
+    false,
+    "neto medio -0.219%, exceso A -0.056%, PF neto 0.80; celdas con neto>0: 0/5"
+   ],
+   "G3": [
+    false,
+    "p5 neto -4.68%, peor -12.67%, DD bruto (slots 10%) -9.3%"
+   ],
+   "G4": [
+    false,
+    "trimestres+ 50% (8), sin mejor trim. ≤0; regímenes+ 1/2, régimen con exceso<-0,3%"
+   ],
+   "G5": [
+    false,
+    "activos+ 33% (18), sin mejor activo ≤0"
+   ],
+   "G6": [
+    false,
+    "0.29 señales/día"
+   ],
+   "G7": [
+    false,
+    "celdas con exceso bruto>0: 0/5"
+   ]
+  },
+  "B": {
+   "G1": [
+    false,
+    "exceso C 8h +0.121% (p=0.020); TRAIN +0.128%, VAL +0.084%; horizontes con exceso>0: 3/6"
+   ],
+   "G2": [
+    false,
+    "neto medio +0.021%, exceso A +0.184%, PF neto 1.02; celdas con neto>0: 3/5"
+   ],
+   "G3": [
+    false,
+    "p5 neto -3.90%, peor -19.66%, DD bruto (slots 10%) -12.8%"
+   ],
+   "G4": [
+    false,
+    "trimestres+ 55% (11), sin mejor trim. >0; regímenes+ 3/3"
+   ],
+   "G5": [
+    true,
+    "activos+ 60% (20), sin mejor activo >0"
+   ],
+   "G6": [
+    true,
+    "2.07 señales/día"
+   ],
+   "G7": [
+    true,
+    "celdas con exceso bruto>0: 5/5"
+   ]
+  },
+  "C": {
+   "G1": [
+    false,
+    "exceso C 8h +0.115% (p=0.026); TRAIN +0.149%, VAL -0.030%; horizontes con exceso>0: 6/6"
+   ],
+   "G2": [
+    false,
+    "neto medio -0.015%, exceso A +0.148%, PF neto 0.99; celdas con neto>0: 0/5"
+   ],
+   "G3": [
+    false,
+    "p5 neto -4.98%, peor -19.66%, DD bruto (slots 10%) -19.0%"
+   ],
+   "G4": [
+    false,
+    "trimestres+ 55% (11), sin mejor trim. ≤0; regímenes+ 1/3"
+   ],
+   "G5": [
+    true,
+    "activos+ 65% (20), sin mejor activo >0"
+   ],
+   "G6": [
+    true,
+    "2.07 señales/día"
+   ],
+   "G7": [
+    true,
+    "celdas con exceso bruto>0: 4/5"
+   ]
+  },
+  "D": {
+   "G1": [
+    false,
+    "exceso C 8h +0.024% (p=0.371); TRAIN +0.017%, VAL +0.057%; horizontes con exceso>0: 3/6"
+   ],
+   "G2": [
+    false,
+    "neto medio -0.081%, exceso A +0.082%, PF neto 0.92; celdas con neto>0: 0/5"
+   ],
+   "G3": [
+    false,
+    "p5 neto -4.27%, peor -12.12%, DD bruto (slots 10%) -9.0%"
+   ],
+   "G4": [
+    false,
+    "trimestres+ 55% (11), sin mejor trim. ≤0; regímenes+ 1/3"
+   ],
+   "G5": [
+    false,
+    "activos+ 50% (20), sin mejor activo ≤0"
+   ],
+   "G6": [
+    true,
+    "1.50 señales/día"
+   ],
+   "G7": [
+    false,
+    "celdas con exceso bruto>0: 3/5"
+   ]
+  },
+  "E": {
+   "G1": [
+    false,
+    "exceso C 8h -0.050% (p=0.774); TRAIN -0.119%, VAL +0.382%; horizontes con exceso>0: 1/6"
+   ],
+   "G2": [
+    false,
+    "neto medio -0.155%, exceso A +0.008%, PF neto 0.85; celdas con neto>0: 0/5"
+   ],
+   "G3": [
+    false,
+    "p5 neto -4.00%, peor -11.69%, DD bruto (slots 10%) -29.4%"
+   ],
+   "G4": [
+    false,
+    "trimestres+ 55% (11), sin mejor trim. ≤0; regímenes+ 1/2"
+   ],
+   "G5": [
+    false,
+    "activos+ 45% (20), sin mejor activo ≤0"
+   ],
+   "G6": [
+    true,
+    "1.51 señales/día"
+   ],
+   "G7": [
+    false,
+    "celdas con exceso bruto>0: 0/5"
+   ]
+  }
+ },
+ "primario": {
+  "A": 14,
+  "B": 24,
+  "C": 24,
+  "D": 24,
+  "E": 200
+ },
+ "horizonte_velas": 2,
+ "horizonte_h": 8
+}
