@@ -62,7 +62,7 @@ return [
 
     'validation' => [
         'minimum_trades' => env('VALIDATION_MINIMUM_TRADES', 6),
-        'minimum_win_rate' => env('VALIDATION_MINIMUM_WIN_RATE', '40'),
+        'minimum_win_rate' => env('VALIDATION_MINIMUM_WIN_RATE', '60'),
         'maximum_drawdown' => env('VALIDATION_MAXIMUM_DRAWDOWN', '10'),
         'minimum_profit_loss' => env('VALIDATION_MINIMUM_PROFIT_LOSS', '0'),
     ],
@@ -119,7 +119,7 @@ return [
 
     'active_cycles' => [
         'max_active' => env('MAX_ACTIVE_CYCLES', 10),
-        'hold_timeout_hours' => env('HOLD_CYCLE_TIMEOUT_HOURS', 4),
+        'hold_timeout_hours' => env('HOLD_CYCLE_TIMEOUT_HOURS', 8),
     ],
 
     /*

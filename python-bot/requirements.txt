@@ -1,0 +1,2 @@
+# Versión probada: freqtrade 2026.9 sobre Python 3.14.7 (Windows). Instalar con: pip install -r requirements.txt
+freqtrade==2026.9

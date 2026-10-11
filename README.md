@@ -18,3 +18,6 @@ El proyecto se encuentra en una etapa temprana de desarrollo y aprendizaje. Todo
 
 - `api/` — Backend Laravel: estrategias, market data, riesgo, backtesting y persistencia.
 - `site/` — Frontend Vue (en preparación).
+
+## Estado: Laravel en pausa / Python + Freqtrade
+El desarrollo del motor de trading pasó a [python-bot/](python-bot/README.md). `api/` (Laravel) se conserva como histórico y referencia; ver [api/LEGACY.md](api/LEGACY.md) para reactivarlo.

@@ -1,0 +1,16 @@
+{
+ "B": {
+  "placebos": 200,
+  "rate_p_lt_0.05": 0.02,
+  "ci95_covers_0": 0.975,
+  "mean_placebo_excess": -0.0002581916225276312,
+  "sd_placebo_excess": 0.0019794309113899556
+ },
+ "C": {
+  "placebos": 200,
+  "rate_p_lt_0.05": 0.015,
+  "ci95_covers_0": 0.975,
+  "mean_placebo_excess": 1.591182935846213e-05,
+  "sd_placebo_excess": 0.0020674927883185335
+ }
+}

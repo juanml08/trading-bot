@@ -1,0 +1,30 @@
+{
+ "verdict": "INCONCLUSO (puerta fallida)",
+ "criteria": {
+  "0a_reproduccion_E1": true,
+  "0b_emparejamiento_adecuado": false,
+  "placebo_calibrado": true,
+  "D_gt0_y_IC14_inferior_gt0": false,
+  "IC28_inferior_gt0": false,
+  "C_neto_gt0_a_0.40": true,
+  "D_gt0_ambas_mitades": false,
+  "D_gt0_tres_regimenes_tendencia": false,
+  "concentracion_activo_trimestre_le_30": false,
+  "D_gt0_sin_mejor_activo_ni_trimestre": true
+ },
+ "D": 0.001809801329321755,
+ "D_ci14": [
+  -0.0018692365322552276,
+  0.005579404868457673
+ ],
+ "D_ci28": [
+  -0.0019273817095148487,
+  0.005700453286377841
+ ],
+ "D_ci7": [
+  -0.0024595593314450043,
+  0.006087864421516489
+ ],
+ "p_H_E2": 0.16898310168983102,
+ "dd_cartera_E1_independiente": "35,0 % (no cumple \u226415 %); C no se implementa"
+}

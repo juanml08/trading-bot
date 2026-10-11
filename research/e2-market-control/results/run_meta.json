@@ -1,0 +1,12 @@
+{
+ "preregistro_sha256": "ce778e52d13cb4a785c68834ccfe64fb0b16d2ff7592b6edd717a0445b391e18",
+ "seed": 20261011,
+ "numpy": "2.5.3",
+ "python": "3.14.7",
+ "started": "2026-10-11 15:21:37",
+ "assets": 20,
+ "bars": 10404,
+ "signals_C": 3397,
+ "finished": "2026-10-11 15:25:09",
+ "elapsed_s": 212
+}

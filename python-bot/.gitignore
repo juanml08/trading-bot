@@ -1,0 +1,8 @@
+.venv/
+user_data/data/
+user_data/backtest_results/
+user_data/logs/
+user_data/*.sqlite*
+config.local.json
+.env
+__pycache__/

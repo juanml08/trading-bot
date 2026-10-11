@@ -1,0 +1,62 @@
+{
+ "seed": 20261011,
+ "fee": 0.001,
+ "slip": 0.0005,
+ "n_par": 24,
+ "horizon_bars": 12,
+ "cooldown": 18,
+ "draws": 2000,
+ "n_boot": 10000,
+ "blocks_days": [
+  14,
+  7,
+  28
+ ],
+ "windows_bars": {
+  "W14": 84,
+  "W28": 168
+ },
+ "zone_bars": 18,
+ "caliper_k": 0.25,
+ "sigma_btc_ret6": 0.025218380908383745,
+ "sigma_mkt_ret6": 0.033645860338041914,
+ "caliper_btc_ret6": 0.006304595227095936,
+ "caliper_mkt_ret6": 0.008411465084510478,
+ "min_pool": 5,
+ "min_frac": 0.5,
+ "gate_smd": 0.1,
+ "gate_smd_draw": 0.15,
+ "delta_descarte": 0.001,
+ "specs": {
+  "PRIMARIA": {
+   "window": 84,
+   "calip": true,
+   "zone": 18,
+   "seed": 20261312
+  },
+  "W28": {
+   "window": 168,
+   "calip": true,
+   "zone": 18,
+   "seed": 20261313
+  },
+  "AB0": {
+   "window": 84,
+   "calip": false,
+   "zone": 0,
+   "seed": 20261412
+  },
+  "AB1": {
+   "window": 84,
+   "calip": false,
+   "zone": 18,
+   "seed": 20261413
+  },
+  "AB2": {
+   "window": 84,
+   "calip": true,
+   "zone": 0,
+   "seed": 20261414
+  }
+ }
+}

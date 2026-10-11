@@ -1,0 +1,55 @@
+{
+ "B-48h-R1": {
+  "criteria": {
+   "1_net_ci_lower_gt0": false,
+   "2_excess_holm_p_lt_0.05": false,
+   "3_net_gt0_at_0.40": false,
+   "4_halves_and_years": true,
+   "5_concentration": false,
+   "6_pf_ge_1.15": false,
+   "7_dd_le_15": false,
+   "8_n_ge_150_blocks_ge_30": true
+  },
+  "discard_condition": false,
+  "verdict": "investigar_mas",
+  "years_used": [
+   2022,
+   2023,
+   2024,
+   2025,
+   2026
+  ],
+  "years_positive": [
+   2023,
+   2024,
+   2026
+  ]
+ },
+ "C-48h-R1": {
+  "criteria": {
+   "1_net_ci_lower_gt0": true,
+   "2_excess_holm_p_lt_0.05": true,
+   "3_net_gt0_at_0.40": true,
+   "4_halves_and_years": true,
+   "5_concentration": true,
+   "6_pf_ge_1.15": true,
+   "7_dd_le_15": false,
+   "8_n_ge_150_blocks_ge_30": true
+  },
+  "discard_condition": false,
+  "verdict": "investigar_mas",
+  "years_used": [
+   2022,
+   2023,
+   2024,
+   2025,
+   2026
+  ],
+  "years_positive": [
+   2023,
+   2024,
+   2025,
+   2026
+  ]
+ }
+}

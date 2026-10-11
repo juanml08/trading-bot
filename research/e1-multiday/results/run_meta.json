@@ -1,0 +1,18 @@
+{
+ "preregistro_sha256": "f13d2c14d8369fa6246c9927a94c518235ef0b34ca4ceb8200aa072a00594274",
+ "seed": 20261011,
+ "numpy": "2.5.3",
+ "python": "3.14.7",
+ "started": "2026-10-11 15:09:18",
+ "assets": 20,
+ "bars": 10404,
+ "first_bar": "2022-01-01T00:00:00.000",
+ "last_bar": "2026-09-30T20:00:00.000",
+ "eligible_first": "2022-05-14T08:00:00.000",
+ "eligible_last": "2026-09-27T20:00:00.000",
+ "round_trip_cost_base": 0.0029965022488754878,
+ "ref_shortfall_B": 0,
+ "ref_shortfall_C": 0,
+ "finished": "2026-10-11 15:11:43",
+ "elapsed_s": 145
+}

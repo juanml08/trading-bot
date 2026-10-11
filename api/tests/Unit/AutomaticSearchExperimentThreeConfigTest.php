@@ -39,10 +39,10 @@ class AutomaticSearchExperimentThreeConfigTest extends TestCase
         $this->assertSame(900, (int) config('trading.automatic_search.retry_seconds'));
     }
 
-    public function test_at_most_five_active_cycles_are_allowed_and_hold_timeout_is_four_hours(): void
+    public function test_at_most_five_active_cycles_are_allowed_and_hold_timeout_is_eight_hours(): void
     {
         $this->assertSame(5, (int) config('trading.active_cycles.max_active'));
-        $this->assertSame(4, (int) config('trading.active_cycles.hold_timeout_hours'));
+        $this->assertSame(8, (int) config('trading.active_cycles.hold_timeout_hours'));
     }
 
     public function test_minimum_trades_are_five_for_discovery_and_six_for_validation(): void
@@ -56,7 +56,7 @@ class AutomaticSearchExperimentThreeConfigTest extends TestCase
         $this->assertSame('30', config('trading.discovery.minimum_win_rate'));
         $this->assertSame('15', config('trading.discovery.maximum_drawdown'));
         $this->assertSame('0', config('trading.discovery.minimum_profit_loss'));
-        $this->assertSame('40', config('trading.validation.minimum_win_rate'));
+        $this->assertSame('60', config('trading.validation.minimum_win_rate'));
         $this->assertSame('10', config('trading.validation.maximum_drawdown'));
         $this->assertSame('0', config('trading.validation.minimum_profit_loss'));
     }

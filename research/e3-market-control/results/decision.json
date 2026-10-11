@@ -1,0 +1,51 @@
+{
+ "verdict": "INCONCLUSO",
+ "reasons": [
+  "comparación primaria no válida: V1_muestra"
+ ],
+ "V0": true,
+ "gates": {
+  "V1_muestra": false,
+  "V2_candidatos": true,
+  "V3_equilibrio": true,
+  "V4_reutilizacion": true,
+  "valida": false
+ },
+ "placebo_calibrado": false,
+ "criterios_candidata": {
+  "a_D_gt0_IC14_inferior_gt0": false,
+  "b_IC7_y_IC28_inferior_gt0": false,
+  "c_costo_0.40_D_gt0_IC_gt0_C_gt0": false,
+  "d_mitades_y_anios": false,
+  "e_concentracion": false,
+  "f_sin_top5_bloques": false
+ },
+ "descartar_upper_lt_0.10pp_en_7_14_28": false,
+ "D": -0.004862769609402865,
+ "D_ci7": [
+  -0.015273275499557424,
+  0.004964553636905212
+ ],
+ "D_ci14": [
+  -0.014728409037716715,
+  0.00419475502495797
+ ],
+ "D_ci28": [
+  -0.015432419746046875,
+  0.00399027808513544
+ ],
+ "p_unilateral_14d": 0.847015298470153,
+ "W28_valida": false,
+ "W28_D": 0.003842208308793272,
+ "W28_ci14": [
+  -0.00430183454820179,
+  0.012044154607111656
+ ],
+ "riesgo_veredicto_aparte": {
+  "dd_cartera_C_todas": 0.3495927376376132,
+  "dd_limite": 0.15,
+  "cumple": false,
+  "racha_max_perdidas_C": 25,
+  "nota": "C no se implementa mientras no cumpla la evaluación de riesgo, sea cual sea el veredicto de ventaja."
+ }
+}

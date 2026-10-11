@@ -1,0 +1,40 @@
+{
+ "seed": 20261011,
+ "numpy": "2.5.3",
+ "python": "3.14.7",
+ "sha256_files": {
+  "PREREGISTRO.md": "59ffe8fac9bf4c448cc356da21066ed8f94abb22e27a835f4f0152e034b88821",
+  "e3.py": "2cae7f2b682a7c8a463d920322bd16b799644f8096029fe2d61d6a735e213006",
+  "e1.py": "8f60daf1fb5c2508edde00ab371eea81b7a93489ebce544218dad716363b4354",
+  "audit_4h.py": "5fac36295856956ee43a5bd7a696911419d28aa8f2be932195454b28ca9899aa",
+  "e1_variants.json": "91c166ea9c446eb49cb705f5608ffbea26be5aaa22926a3105a761f0013faa97"
+ },
+ "sha256_data4h": {
+  "BTC.npy": "ae4321608b2616a1780cb900ed1655bd9a28ec2fc1812f297ff60b220465db94",
+  "ETH.npy": "0a50225b3d668da9f7ee6b424b1cb3f555589a7ed6b2f9a36af188813b5b1c42",
+  "BNB.npy": "7eeda04e5118264031bfd574d0e27af2fef5723f927496b0b51f9f85e012267d",
+  "XRP.npy": "3d709e6a1c05c76a15983ffb357fca3f669eb4c0ab6a873ab6cac48a59ef84bc",
+  "SOL.npy": "e9a1d5538ed0c5d16bdbf5d5d5c6d62eb56f56d2d50fb9f5049d37a6c7008429",
+  "ADA.npy": "fcd987ac6be5d9031b2bc42b8a1a1dbd2524ed6c81bf4564a825dc5252312355",
+  "DOGE.npy": "f7ee48b2ca6ed5ae4c20ef6b9d14711a848c1870fe662017cd599f53529d1f49",
+  "TRX.npy": "4eed25c3afa9a839c7ac78053573e860858d0cd68c21e9cc33f268b1abef32c2",
+  "LINK.npy": "f47b0d116f5669fad48b18d05f52db4da90180d30200a88076718d05f8e5dbbb",
+  "LTC.npy": "77c554ce06f18ad7f6d4c9f735d32ea396b142966cc3cf98f9a9d3e9155d8861",
+  "AVAX.npy": "ca9d0fb9ef36e28a0a5f2a1f9e460f4f459b99f4bfdc94b4e6799ecbdaa37794",
+  "DOT.npy": "191675e8274d10d2b6dec98864d7792fe3c94dcb03ce400f520a3c8e6ce01582",
+  "ETC.npy": "35051829d2561ef9ac5b76d62c1c5b087e7220c05232ac5a6818bddb2aa7b3ff",
+  "BCH.npy": "ac61304cb10d5e1f719d551e06e221d42c767cb5657cacdd4d1add6b36feb6be",
+  "ATOM.npy": "dd8c261d81e68fde5f742409ffa3347835f8149d6783437cd499312f87adde00",
+  "NEAR.npy": "003b8c62f5b000b4a9c07b0523c4163a2f24939140ae77e404f74f3bbc9354d8",
+  "XLM.npy": "12fa06109421b51cb56da56ad2c2fa6f5ba2e84955fe197506bb3cc66c92700a",
+  "UNI.npy": "461cdbe90cb82e81a86911e5995ea14b7b394f6e862fef4ed6ed93aff92c57ad",
+  "AAVE.npy": "3d37ea18e5f7378a8aeb79a057b77ab306ba0cc986ab7153faf3e2a858b32bbc",
+  "IOTA.npy": "3b2fb773c9d0dec6f2eae8ec94e3712c9ed825df8cb1dc36d523573fe01c67be"
+ },
+ "started": "2026-10-11 15:46:51",
+ "assets": 20,
+ "bars": 10404,
+ "signals_C": 3397,
+ "finished": "2026-10-11 15:48:29",
+ "elapsed_s": 98
+}
