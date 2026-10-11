@@ -28,3 +28,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 backup_experimento_2.sql
+
+# Resultados intermedios regenerables (run_sweep.py)
+research/selector-walkforward/results/sweep_*.npz
+research/selector-walkforward/results/l2_real.npz
