@@ -1,0 +1,193 @@
+C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\research\strategy-audit\audit.py:45: UserWarning: obj.round has no effect with datetime, timedelta, or period dtypes. Use obj.dt.round(...) instead.
+  print("-- 5 peores trades:"); print(ts.head(5)[["pair","open_date","exit_reason","profit_ratio","profit_abs","mfe","mae"]].round(3).to_string())
+C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\research\strategy-audit\audit.py:45: UserWarning: obj.round has no effect with datetime, timedelta, or period dtypes. Use obj.dt.round(...) instead.
+  print("-- 5 peores trades:"); print(ts.head(5)[["pair","open_date","exit_reason","profit_ratio","profit_abs","mfe","mae"]].round(3).to_string())
+C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\research\strategy-audit\audit.py:45: UserWarning: obj.round has no effect with datetime, timedelta, or period dtypes. Use obj.dt.round(...) instead.
+  print("-- 5 peores trades:"); print(ts.head(5)[["pair","open_date","exit_reason","profit_ratio","profit_abs","mfe","mae"]].round(3).to_string())
+C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\research\strategy-audit\audit.py:45: UserWarning: obj.round has no effect with datetime, timedelta, or period dtypes. Use obj.dt.round(...) instead.
+  print("-- 5 peores trades:"); print(ts.head(5)[["pair","open_date","exit_reason","profit_ratio","profit_abs","mfe","mae"]].round(3).to_string())
+
+================ ReferenceSmaCross  n=830  net=-47.1  gross=118.4  fees=165.5
+-- salidas
+               n      pnl  avg_pct   dur_h
+exit_reason                               
+exit_signal  763  281.530    0.004  47.620
+force_exit     3    3.005    0.010  38.000
+stop_loss     64 -331.672   -0.052  17.625
+-- por par
+            n     net    gross     pf  avg_pct
+pair                                          
+BNB/USDT  267  57.839  111.072  1.193    0.002
+BTC/USDT  281 -42.885   13.085  0.873   -0.002
+ETH/USDT  282 -62.091   -5.767  0.861   -0.002
+-- regimen (ret 30d del par antes de entrar)
+              n      net  avg_pct     pf
+regime                                  
+bajista30d  154 -116.252   -0.008  0.555
+lateral30d  428   84.899    0.002  1.191
+alcista30d  223    2.608    0.000  1.007
+-- eficiencia 7d
+                        n      net  avg_pct
+er_q                                       
+ruidoso(ER bajo)      275   43.209    0.002
+medio                 274   28.334    0.001
+direccional(ER alto)  275 -111.524   -0.004
+-- tardanza de entrada (subida desde minimo 24h)
+                   n      net  avg_pct   runup
+ru_q                                          
+poco run-up24h   277  33.1930   0.0012  0.0124
+medio            276 -40.7096  -0.0015  0.0282
+mucho run-up24h  277 -39.6208  -0.0014  0.0613
+-- ganadoras n=282 media=3.68% MFE medio=6.92% | perdedoras n=548 media=-1.98% MFE medio=1.42% MAE medio=-2.68%
+   perdedoras que antes llegaron a >=+1% a favor: 47.1%; a >=+2%: 24.1%; dur media perd 28.6h vs gan 77.7h
+-- 5% peores (41 ops) suman -212.7 USDT; el 95% restante 165.6
+   comision/operacion media = 0.199 USDT = 0.20% del stake; bruto medio/op=0.143; neto=-0.057
+-- meses negativos 19/34; peor mes 2025-02 -46.6; mejor 2026-08 52.6
+   5 peores meses: {'2025-02': -46.6, '2024-04': -42.5, '2025-01': -37.5, '2025-04': -36.9, '2026-04': -30.4}
+-- racha maxima de perdidas seguidas 21
+-- 5 peores trades:
+         pair                 open_date exit_reason  profit_ratio  profit_abs    mfe    mae
+89   BNB/USDT 2024-04-15 12:00:00+00:00   stop_loss        -0.052      -5.195  0.004 -0.058
+568  ETH/USDT 2025-11-16 05:00:00+00:00   stop_loss        -0.052      -5.194  0.017 -0.053
+175  ETH/USDT 2024-08-06 17:00:00+00:00   stop_loss        -0.052      -5.194  0.008 -0.066
+570  BNB/USDT 2025-11-18 23:00:00+00:00   stop_loss        -0.052      -5.193  0.007 -0.054
+647  ETH/USDT 2026-03-01 06:00:00+00:00   stop_loss        -0.052      -5.193  0.008 -0.052
+
+================ Supertrend  n=921  net=-75.3  gross=108.3  fees=183.7
+-- salidas
+               n       pnl  avg_pct   dur_h
+exit_reason                                
+exit_signal  297 -1160.523   -0.039  34.892
+force_exit     2    -0.649   -0.003   4.000
+roi          622  1085.840    0.017  34.751
+-- por par
+            n     net   gross     pf  avg_pct
+pair                                         
+BNB/USDT  298 -44.697  14.704  0.885   -0.001
+BTC/USDT  311 -40.201  21.748  0.880   -0.001
+ETH/USDT  312   9.566  71.878  1.022    0.000
+-- regimen (ret 30d del par antes de entrar)
+              n     net  avg_pct     pf
+regime                                 
+bajista30d   99 -73.523   -0.007  0.574
+lateral30d  472  36.294    0.001  1.074
+alcista30d  330 -21.796   -0.001  0.953
+-- eficiencia 7d
+                        n     net  avg_pct
+er_q                                      
+ruidoso(ER bajo)      307 -47.960   -0.002
+medio                 307 -84.368   -0.003
+direccional(ER alto)  307  56.996    0.002
+-- tardanza de entrada (subida desde minimo 24h)
+                   n      net  avg_pct   runup
+ru_q                                          
+poco run-up24h   307  -9.6500  -0.0003  0.0183
+medio            307 -74.8063  -0.0024  0.0370
+mucho run-up24h  307   9.1242   0.0003  0.0748
+-- ganadoras n=512 media=2.12% MFE medio=3.38% | perdedoras n=409 media=-2.84% MFE medio=1.20% MAE medio=-3.99%
+   perdedoras que antes llegaron a >=+1% a favor: 51.1%; a >=+2%: 16.6%; dur media perd 39.2h vs gan 31.1h
+-- 5% peores (46 ops) suman -345.0 USDT; el 95% restante 269.7
+   comision/operacion media = 0.199 USDT = 0.20% del stake; bruto medio/op=0.118; neto=-0.082
+-- meses negativos 23/34; peor mes 2025-12 -58.0; mejor 2024-02 74.9
+   5 peores meses: {'2025-12': -58.0, '2025-03': -33.7, '2025-02': -26.3, '2025-06': -25.8, '2024-04': -23.6}
+-- racha maxima de perdidas seguidas 11
+-- 5 peores trades:
+         pair                 open_date  exit_reason  profit_ratio  profit_abs    mfe    mae
+84   BNB/USDT 2024-03-16 00:00:00+00:00  exit_signal        -0.118     -11.833  0.020 -0.133
+376  ETH/USDT 2025-03-02 17:00:00+00:00  exit_signal        -0.104     -10.382  0.044 -0.140
+4    BTC/USDT 2024-01-11 15:00:00+00:00  exit_signal        -0.104     -10.331  0.002 -0.110
+70   BTC/USDT 2024-03-04 23:00:00+00:00  exit_signal        -0.098      -9.772  0.016 -0.131
+322  BNB/USDT 2024-12-04 10:00:00+00:00  exit_signal        -0.097      -9.632  0.014 -0.119
+
+================ BbandRsi  n=282  net=5.7  gross=61.9  fees=56.2
+-- salidas
+               n      pnl  avg_pct    dur_h
+exit_reason                                
+exit_signal  261   89.054    0.003  127.912
+force_exit     1   -2.423   -0.024  114.000
+roi           12  119.771    0.100   38.083
+stop_loss      8 -200.725   -0.251  158.000
+-- por par
+           n     net   gross     pf  avg_pct
+pair                                        
+BNB/USDT  90  28.217  46.156  1.172    0.003
+BTC/USDT  93   6.315  24.847  1.038    0.001
+ETH/USDT  99 -28.856  -9.083  0.901   -0.003
+-- regimen (ret 30d del par antes de entrar)
+              n      net  avg_pct     pf
+regime                                  
+bajista30d   62   37.148    0.006  1.240
+lateral30d  144 -154.031   -0.011  0.594
+alcista30d   69  121.540    0.018  2.734
+-- eficiencia 7d
+                       n      net  avg_pct
+er_q                                      
+ruidoso(ER bajo)      93  -65.575   -0.007
+medio                 93  -41.881   -0.005
+direccional(ER alto)  93  100.947    0.011
+-- tardanza de entrada (subida desde minimo 24h)
+                  n       net  avg_pct   runup
+ru_q                                          
+poco run-up24h   94  -56.6951  -0.0061  0.0006
+medio            94  -46.5516  -0.0050  0.0027
+mucho run-up24h  94  108.9227   0.0116  0.0166
+-- ganadoras n=177 media=3.55% MFE medio=4.82% | perdedoras n=105 media=-5.92% MFE medio=1.43% MAE medio=-12.43%
+   perdedoras que antes llegaron a >=+1% a favor: 53.3%; a >=+2%: 26.7%; dur media perd 184.9h vs gan 89.3h
+-- 5% peores (14 ops) suman -274.3 USDT; el 95% restante 280.0
+   comision/operacion media = 0.199 USDT = 0.20% del stake; bruto medio/op=0.220; neto=0.020
+-- meses negativos 14/34; peor mes 2026-02 -68.1; mejor 2024-03 41.7
+   5 peores meses: {'2026-02': -68.1, '2025-11': -54.6, '2024-08': -40.9, '2026-06': -36.7, '2024-09': -14.4}
+-- racha maxima de perdidas seguidas 6
+-- 5 peores trades:
+         pair                 open_date exit_reason  profit_ratio  profit_abs    mfe    mae
+102  ETH/USDT 2025-02-01 22:00:00+00:00   stop_loss        -0.251     -25.137  0.004 -0.325
+238  ETH/USDT 2026-05-27 22:00:00+00:00   stop_loss        -0.251     -25.135  0.013 -0.253
+59   BNB/USDT 2024-08-01 05:00:00+00:00   stop_loss        -0.251     -25.132  0.024 -0.291
+199  ETH/USDT 2026-01-29 15:00:00+00:00   stop_loss        -0.251     -25.126  0.000 -0.250
+57   ETH/USDT 2024-08-01 05:00:00+00:00   stop_loss        -0.251     -25.119  0.023 -0.329
+
+================ ADXMomentum  n=1437  net=-178.0  gross=108.6  fees=286.6
+-- salidas
+                n       pnl  avg_pct   dur_h
+exit_reason                                 
+exit_signal   323 -1288.869   -0.040  39.344
+force_exit      1    -0.210   -0.002   1.000
+roi          1113  1111.087    0.010  13.701
+-- por par
+            n     net   gross     pf  avg_pct
+pair                                         
+BNB/USDT  448 -68.903  20.372  0.833   -0.002
+BTC/USDT  430 -75.478  10.195  0.805   -0.002
+ETH/USDT  559 -33.611  78.025  0.931   -0.001
+-- regimen (ret 30d del par antes de entrar)
+              n     net  avg_pct     pf
+regime                                 
+bajista30d  164 -48.750   -0.003  0.725
+lateral30d  673 -84.294   -0.001  0.857
+alcista30d  570 -39.665   -0.001  0.920
+-- eficiencia 7d
+                        n      net  avg_pct
+er_q                                       
+ruidoso(ER bajo)      478 -126.853   -0.003
+medio                 477  -92.012   -0.002
+direccional(ER alto)  478   58.765    0.001
+-- tardanza de entrada (subida desde minimo 24h)
+                   n      net  avg_pct   runup
+ru_q                                          
+poco run-up24h   479 -70.6834  -0.0015  0.0283
+medio            479 -64.8073  -0.0014  0.0511
+mucho run-up24h  479 -42.5011  -0.0009  0.0976
+-- ganadoras n=1113 media=1.00% MFE medio=1.81% | perdedoras n=324 media=-3.99% MFE medio=0.58% MAE medio=-4.84%
+   perdedoras que antes llegaron a >=+1% a favor: 15.4%; a >=+2%: 0.0%; dur media perd 39.2h vs gan 13.7h
+-- 5% peores (71 ops) suman -481.0 USDT; el 95% restante 303.0
+   comision/operacion media = 0.199 USDT = 0.20% del stake; bruto medio/op=0.076; neto=-0.124
+-- meses negativos 26/34; peor mes 2025-03 -44.0; mejor 2024-02 60.8
+   5 peores meses: {'2025-03': -44.0, '2025-02': -42.4, '2024-08': -26.0, '2026-06': -25.6, '2024-04': -24.8}
+-- racha maxima de perdidas seguidas 6
+-- 5 peores trades:
+         pair                 open_date  exit_reason  profit_ratio  profit_abs    mfe    mae
+621  ETH/USDT 2025-03-02 23:00:00+00:00  exit_signal        -0.138     -13.756  0.005 -0.173
+990  BNB/USDT 2025-10-13 09:00:00+00:00  exit_signal        -0.126     -12.557  0.000 -0.149
+131  ETH/USDT 2024-03-05 14:00:00+00:00  exit_signal        -0.108     -10.827  0.011 -0.153
+610  BNB/USDT 2025-02-13 14:00:00+00:00  exit_signal        -0.108     -10.710  0.000 -0.108
+533  BNB/USDT 2024-12-04 11:00:00+00:00  exit_signal        -0.106     -10.532  0.005 -0.120
