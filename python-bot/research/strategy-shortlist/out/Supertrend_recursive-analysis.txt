@@ -1,0 +1,96 @@
+2026-10-11 16:25:17,714 - freqtrade - INFO - freqtrade 2026.9
+2026-10-11 16:25:18,438 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-10-11 16:25:22,523 - freqtrade.configuration.load_config - INFO - Using config: config.json ...
+2026-10-11 16:25:22,528 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-10-11 16:25:22,529 - freqtrade.loggers - INFO - Logfile configured
+2026-10-11 16:25:22,530 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-10-11 16:25:22,531 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20250601-20260301 ...
+2026-10-11 16:25:22,532 - freqtrade.configuration.configuration - INFO - Using user-data directory: user_data ...
+2026-10-11 16:25:22,533 - freqtrade.configuration.configuration - INFO - Using data directory: user_data\data\binance ...
+2026-10-11 16:25:22,533 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20250601-20260301
+2026-10-11 16:25:22,535 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-10-11 16:25:22,548 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-10-11 16:25:22,549 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-10-11 16:25:22,550 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\user_data\strategies\BbandRsi.py:5: FutureWarning: 'freqtrade.vendor.qtpylib.indicators' is deprecated and will be removed in a future release. Import from technical instead - either the module (`from technical import qtpylib`) or a single function (`from technical.qtpylib import crossed_above`).
+  import freqtrade.vendor.qtpylib.indicators as qtpylib
+2026-10-11 16:25:22,609 - freqtrade.optimize.analysis.recursive_helpers - INFO - Recursive test of Supertrend.py started.
+2026-10-11 16:25:22,612 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-10-11 16:25:22,613 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.85
+2026-10-11 16:25:22,628 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-10-11 16:25:24,732 - freqtrade.resolvers.exchange_resolver - INFO - Using resolved exchange class 'Binance' ...
+2026-10-11 16:25:24,738 - freqtrade.resolvers.iresolver - INFO - Using resolved strategy Supertrend from 
+'C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\user_data\strategies\Supertrend.py'...
+2026-10-11 16:25:24,740 - freqtrade.strategy.hyper - INFO - Found no parameter file.
+2026-10-11 16:25:24,741 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'timeframe' with value from the configuration: 1h.
+2026-10-11 16:25:24,742 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_currency' with value from the configuration: USDT.
+2026-10-11 16:25:24,743 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_amount' with value from the configuration: 100.
+2026-10-11 16:25:24,743 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'unfilledtimeout' with value from the configuration: {'entry': 10, 'exit': 10, 'unit': 'minutes', 
+'exit_timeout_count': 0}.
+2026-10-11 16:25:24,744 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'max_open_trades' with value from the configuration: 3.
+2026-10-11 16:25:24,744 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using minimal_roi: {'0': 0.087, '372': 0.058, '861': 0.029, '2221': 0}
+2026-10-11 16:25:24,745 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using timeframe: 1h
+2026-10-11 16:25:24,745 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stoploss: -0.265
+2026-10-11 16:25:24,746 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop: True
+2026-10-11 16:25:24,746 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop_positive: 0.05
+2026-10-11 16:25:24,747 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop_positive_offset: 0.144
+2026-10-11 16:25:24,747 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_only_offset_is_reached: False
+2026-10-11 16:25:24,748 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_custom_stoploss: False
+2026-10-11 16:25:24,748 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using process_only_new_candles: True
+2026-10-11 16:25:24,749 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_types: {'entry': 'limit', 'exit': 'limit', 'stoploss': 'limit', 'stoploss_on_exchange': False, 
+'stoploss_on_exchange_interval': 60}
+2026-10-11 16:25:24,749 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_time_in_force: {'entry': 'GTC', 'exit': 'GTC'}
+2026-10-11 16:25:24,750 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_currency: USDT
+2026-10-11 16:25:24,750 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_amount: 100
+2026-10-11 16:25:24,751 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using startup_candle_count: 199
+2026-10-11 16:25:24,752 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using unfilledtimeout: {'entry': 10, 'exit': 10, 'unit': 'minutes', 'exit_timeout_count': 0}
+2026-10-11 16:25:24,752 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_exit_signal: True
+2026-10-11 16:25:24,753 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_only: False
+2026-10-11 16:25:24,753 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_roi_if_entry_signal: False
+2026-10-11 16:25:24,754 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_offset: 0.0
+2026-10-11 16:25:24,755 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using disable_dataframe_checks: False
+2026-10-11 16:25:24,756 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_buying_expired_candle_after: 0
+2026-10-11 16:25:24,757 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using position_adjustment_enable: False
+2026-10-11 16:25:24,757 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_entry_position_adjustment: -1
+2026-10-11 16:25:24,758 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_open_trades: 3
+2026-10-11 16:25:24,758 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-10-11 16:25:24,771 - freqtrade.resolvers.iresolver - INFO - Using resolved pairlist StaticPairList from 
+'C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\.venv\Lib\site-packages\freqtrade\plugins\pairlist\StaticPairList.py'...
+2026-10-11 16:25:24,789 - freqtrade.optimize.backtesting - INFO - Using fee 0.1000% from config.
+2026-10-11 16:25:24,791 - freqtrade.optimize.analysis.recursive - INFO - Using pair BTC/USDT only for recursive analysis. Replacing whitelist.
+2026-10-11 16:25:24,792 - freqtrade.strategy.hyper - INFO - Strategy Parameter: buy_m1 = 4
+2026-10-11 16:25:24,793 - freqtrade.strategy.hyper - INFO - Strategy Parameter: buy_m2 = 7
+2026-10-11 16:25:24,794 - freqtrade.strategy.hyper - INFO - Strategy Parameter: buy_m3 = 1
+2026-10-11 16:25:24,794 - freqtrade.strategy.hyper - INFO - Strategy Parameter: buy_p1 = 8
+2026-10-11 16:25:24,795 - freqtrade.strategy.hyper - INFO - Strategy Parameter: buy_p2 = 9
+2026-10-11 16:25:24,796 - freqtrade.strategy.hyper - INFO - Strategy Parameter: buy_p3 = 8
+2026-10-11 16:25:24,796 - freqtrade.strategy.hyper - INFO - Strategy Parameter: sell_m1 = 1
+2026-10-11 16:25:24,796 - freqtrade.strategy.hyper - INFO - Strategy Parameter: sell_m2 = 3
+2026-10-11 16:25:24,797 - freqtrade.strategy.hyper - INFO - Strategy Parameter: sell_m3 = 6
+2026-10-11 16:25:24,797 - freqtrade.strategy.hyper - INFO - Strategy Parameter: sell_p1 = 16
+2026-10-11 16:25:24,798 - freqtrade.strategy.hyper - INFO - Strategy Parameter: sell_p2 = 18
+2026-10-11 16:25:24,798 - freqtrade.strategy.hyper - INFO - Strategy Parameter: sell_p3 = 18
+2026-10-11 16:25:24,893 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-23 17:00:00 up to 2026-03-01 00:00:00 (281 days).
+2026-10-11 16:25:25,103 - freqtrade.loggers.set_log_levels - INFO - Reducing verbosity for bias tester.
+2026-10-11 16:25:25,104 - freqtrade.optimize.analysis.recursive - INFO - Calculating indicators to test lookahead on indicators.
+2026-10-11 16:25:25,154 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-23 17:00:00 up to 2025-06-01 10:00:00 (8 days).
+2026-10-11 16:25:25,182 - freqtrade.optimize.analysis.recursive - INFO - Calculating indicators using startup candle of 199.
+2026-10-11 16:25:25,230 - freqtrade.optimize.backtesting - INFO - Loading data from 2026-02-20 16:00:00 up to 2026-03-01 00:00:00 (8 days).
+2026-10-11 16:25:25,251 - freqtrade.optimize.analysis.recursive - INFO - Calculating indicators using startup candle of 399.
+2026-10-11 16:25:25,307 - freqtrade.optimize.backtesting - INFO - Loading data from 2026-02-12 08:00:00 up to 2026-03-01 00:00:00 (16 days).
+2026-10-11 16:25:25,348 - freqtrade.optimize.analysis.recursive - INFO - Calculating indicators using startup candle of 499.
+2026-10-11 16:25:25,406 - freqtrade.optimize.backtesting - INFO - Loading data from 2026-02-08 04:00:00 up to 2026-03-01 00:00:00 (20 days).
+2026-10-11 16:25:25,438 - freqtrade.optimize.analysis.recursive - INFO - Calculating indicators using startup candle of 999.
+2026-10-11 16:25:25,500 - freqtrade.optimize.backtesting - INFO - Loading data from 2026-01-18 08:00:00 up to 2026-03-01 00:00:00 (41 days).
+2026-10-11 16:25:25,559 - freqtrade.optimize.analysis.recursive - INFO - Calculating indicators using startup candle of 1999.
+2026-10-11 16:25:25,585 - freqtrade.exchange.exchange - WARNING - Using 2 calls to get OHLCV. This can result in slower operations for the bot. Please check if you really need 1999 candles for your 
+strategy.
+2026-10-11 16:25:25,616 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-12-07 16:00:00 up to 2026-03-01 00:00:00 (83 days).
+2026-10-11 16:25:25,724 - freqtrade.loggers.set_log_levels - INFO - Restoring log verbosity.
+2026-10-11 16:25:25,726 - freqtrade.optimize.analysis.recursive - INFO - Start checking for recursive bias
+2026-10-11 16:25:25,733 - freqtrade.optimize.analysis.recursive - INFO - No variance on indicator(s) found due to recursive formula.
+2026-10-11 16:25:25,734 - freqtrade.optimize.analysis.recursive - INFO - Start checking for lookahead bias on indicators only
+2026-10-11 16:25:25,737 - freqtrade.optimize.analysis.recursive - INFO - Check indicators at 2025-06-01T10:00:00
+2026-10-11 16:25:25,742 - freqtrade.optimize.analysis.recursive - INFO - No lookahead bias on indicators found.
+2026-10-11 16:25:25,743 - freqtrade.optimize.analysis.recursive_helpers - INFO - Checking recursive and indicator-only lookahead bias of indicators of Supertrend.py took 3 seconds.
+Startup candle 1999 ------------------------------------------------------------------------------------------------------------------------------------------------------- 5/5 100% • 0:00:00 • 0:00:00

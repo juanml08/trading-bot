@@ -1,0 +1,119 @@
+2026-10-11 16:25:51,332 - freqtrade - INFO - freqtrade 2026.9
+2026-10-11 16:25:51,964 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-10-11 16:25:55,698 - freqtrade.configuration.load_config - INFO - Using config: config.json ...
+2026-10-11 16:25:55,704 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-10-11 16:25:55,705 - freqtrade.loggers - INFO - Logfile configured
+2026-10-11 16:25:55,706 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-10-11 16:25:55,708 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20250601-20260301 ...
+2026-10-11 16:25:55,709 - freqtrade.configuration.configuration - INFO - Using user-data directory: user_data ...
+2026-10-11 16:25:55,710 - freqtrade.configuration.configuration - INFO - Using data directory: user_data\data\binance ...
+2026-10-11 16:25:55,711 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20250601-20260301
+2026-10-11 16:25:55,711 - freqtrade.configuration.configuration - INFO - Targeted Trade amount: 20
+2026-10-11 16:25:55,712 - freqtrade.configuration.configuration - INFO - Minimum Trade amount: 10
+2026-10-11 16:25:55,713 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-10-11 16:25:55,726 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-10-11 16:25:55,727 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-10-11 16:25:55,728 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-10-11 16:25:55,731 - freqtrade.optimize.analysis.lookahead_helpers - INFO - Forced order_types to market orders.
+2026-10-11 16:25:55,731 - freqtrade.optimize.analysis.lookahead_helpers - INFO - Forced max_open_trades to -1 (same amount as there are pairs)
+2026-10-11 16:25:55,732 - freqtrade.optimize.analysis.lookahead_helpers - INFO - Dry run wallet was not set to 1 billion, pushing it up there just to avoid false positives
+2026-10-11 16:25:55,733 - freqtrade.optimize.analysis.lookahead_helpers - INFO - fixing stake_amount to 10k
+C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\user_data\strategies\BbandRsi.py:5: FutureWarning: 'freqtrade.vendor.qtpylib.indicators' is deprecated and will be removed in a future release. Import from technical instead - either the module (`from technical import qtpylib`) or a single function (`from technical.qtpylib import crossed_above`).
+  import freqtrade.vendor.qtpylib.indicators as qtpylib
+2026-10-11 16:25:55,784 - freqtrade.optimize.analysis.lookahead_helpers - INFO - Bias test of ADXMomentum.py started.
+2026-10-11 16:25:55,787 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-10-11 16:25:55,787 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.85
+2026-10-11 16:25:55,804 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-10-11 16:25:57,793 - freqtrade.resolvers.exchange_resolver - INFO - Using resolved exchange class 'Binance' ...
+2026-10-11 16:25:57,796 - freqtrade.resolvers.iresolver - INFO - Using resolved strategy ADXMomentum from 
+'C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\user_data\strategies\ADXMomentum.py'...
+2026-10-11 16:25:57,796 - freqtrade.strategy.hyper - INFO - Found no parameter file.
+2026-10-11 16:25:57,797 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'timeframe' with value from the configuration: 1h.
+2026-10-11 16:25:57,798 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'order_types' with value from the configuration: {'entry': 'market', 'exit': 'market', 'stoploss': 'market', 
+'stoploss_on_exchange': False}.
+2026-10-11 16:25:57,799 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_currency' with value from the configuration: USDT.
+2026-10-11 16:25:57,800 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_amount' with value from the configuration: 10000.
+2026-10-11 16:25:57,801 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'unfilledtimeout' with value from the configuration: {'entry': 10, 'exit': 10, 'unit': 'minutes', 
+'exit_timeout_count': 0}.
+2026-10-11 16:25:57,802 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'max_open_trades' with value from the configuration: -1.
+2026-10-11 16:25:57,802 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using minimal_roi: {'0': 0.01}
+2026-10-11 16:25:57,803 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using timeframe: 1h
+2026-10-11 16:25:57,804 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stoploss: -0.25
+2026-10-11 16:25:57,804 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop: False
+2026-10-11 16:25:57,805 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop_positive_offset: 0.0
+2026-10-11 16:25:57,806 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_only_offset_is_reached: False
+2026-10-11 16:25:57,806 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_custom_stoploss: False
+2026-10-11 16:25:57,807 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using process_only_new_candles: True
+2026-10-11 16:25:57,807 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_types: {'entry': 'market', 'exit': 'market', 'stoploss': 'market', 'stoploss_on_exchange': False}
+2026-10-11 16:25:57,808 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_time_in_force: {'entry': 'GTC', 'exit': 'GTC'}
+2026-10-11 16:25:57,809 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_currency: USDT
+2026-10-11 16:25:57,809 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_amount: 10000
+2026-10-11 16:25:57,810 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using startup_candle_count: 20
+2026-10-11 16:25:57,811 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using unfilledtimeout: {'entry': 10, 'exit': 10, 'unit': 'minutes', 'exit_timeout_count': 0}
+2026-10-11 16:25:57,811 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_exit_signal: True
+2026-10-11 16:25:57,812 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_only: False
+2026-10-11 16:25:57,812 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_roi_if_entry_signal: False
+2026-10-11 16:25:57,813 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_offset: 0.0
+2026-10-11 16:25:57,814 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using disable_dataframe_checks: False
+2026-10-11 16:25:57,814 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_buying_expired_candle_after: 0
+2026-10-11 16:25:57,815 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using position_adjustment_enable: False
+2026-10-11 16:25:57,816 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_entry_position_adjustment: -1
+2026-10-11 16:25:57,816 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_open_trades: -1
+2026-10-11 16:25:57,817 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-10-11 16:25:57,832 - freqtrade.resolvers.iresolver - INFO - Using resolved pairlist StaticPairList from 
+'C:\Users\jmlop\OneDrive\Escritorio\trading-bot\python-bot\.venv\Lib\site-packages\freqtrade\plugins\pairlist\StaticPairList.py'...
+2026-10-11 16:25:57,848 - freqtrade.optimize.backtesting - INFO - Using fee 0.1000% from config.
+2026-10-11 16:25:57,994 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2026-03-01 00:00:00 (273 days).
+2026-10-11 16:25:59,845 - freqtrade.loggers.set_log_levels - INFO - Reducing verbosity for bias tester.
+2026-10-11 16:25:59,846 - freqtrade.optimize.analysis.lookahead - INFO - Found 386 trades, calculating 20 trades.
+2026-10-11 16:25:59,909 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-02 01:00:00 (1 days).
+2026-10-11 16:25:59,997 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 01:00:00 (2 days).
+2026-10-11 16:26:00,133 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 00:00:00 (2 days).
+2026-10-11 16:26:00,247 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 01:00:00 (2 days).
+2026-10-11 16:26:00,383 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 02:00:00 (2 days).
+2026-10-11 16:26:00,475 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 15:00:00 (3 days).
+2026-10-11 16:26:00,577 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 03:00:00 (2 days).
+2026-10-11 16:26:00,668 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-05 21:00:00 (5 days).
+2026-10-11 16:26:00,789 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-03 16:00:00 (3 days).
+2026-10-11 16:26:00,874 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-05 21:00:00 (5 days).
+2026-10-11 16:26:01,012 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-06 17:00:00 (6 days).
+2026-10-11 16:26:01,102 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-08 18:00:00 (8 days).
+2026-10-11 16:26:01,225 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-08 19:00:00 (8 days).
+2026-10-11 16:26:01,350 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 11:00:00 (9 days).
+2026-10-11 16:26:01,510 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-08 23:00:00 (8 days).
+2026-10-11 16:26:01,652 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 17:00:00 (9 days).
+2026-10-11 16:26:01,809 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 13:00:00 (9 days).
+2026-10-11 16:26:01,910 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 22:00:00 (9 days).
+2026-10-11 16:26:02,047 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 22:00:00 (9 days).
+2026-10-11 16:26:02,145 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 22:00:00 (9 days).
+2026-10-11 16:26:02,280 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 23:00:00 (9 days).
+2026-10-11 16:26:02,392 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 00:00:00 (9 days).
+2026-10-11 16:26:02,523 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 01:00:00 (9 days).
+2026-10-11 16:26:02,638 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 01:00:00 (9 days).
+2026-10-11 16:26:02,782 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 02:00:00 (9 days).
+2026-10-11 16:26:02,913 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 12:00:00 (10 days).
+2026-10-11 16:26:03,075 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 13:00:00 (10 days).
+2026-10-11 16:26:03,242 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 23:00:00 (10 days).
+2026-10-11 16:26:03,365 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-10 00:00:00 (9 days).
+2026-10-11 16:26:03,460 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 01:00:00 (10 days).
+2026-10-11 16:26:03,578 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 00:00:00 (10 days).
+2026-10-11 16:26:03,679 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 15:00:00 (11 days).
+2026-10-11 16:26:03,788 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 16:00:00 (11 days).
+2026-10-11 16:26:03,920 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 16:00:00 (11 days).
+2026-10-11 16:26:04,045 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-09 23:00:00 (9 days).
+2026-10-11 16:26:04,128 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-12 13:00:00 (12 days).
+2026-10-11 16:26:04,226 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 17:00:00 (11 days).
+2026-10-11 16:26:04,314 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-12 22:00:00 (12 days).
+2026-10-11 16:26:04,427 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-11 02:00:00 (10 days).
+2026-10-11 16:26:04,511 - freqtrade.optimize.backtesting - INFO - Loading data from 2025-05-31 04:00:00 up to 2025-06-12 23:00:00 (12 days).
+2026-10-11 16:26:04,576 - freqtrade.optimize.analysis.lookahead - INFO - Found targeted trade amount = 20 signals.
+2026-10-11 16:26:04,577 - freqtrade.loggers.set_log_levels - INFO - Restoring log verbosity.
+2026-10-11 16:26:04,578 - freqtrade.optimize.analysis.lookahead - INFO - ADXMomentum: no bias detected
+2026-10-11 16:26:04,578 - freqtrade.optimize.analysis.lookahead_helpers - INFO - Checking look ahead bias via backtests of ADXMomentum.py took 9 seconds.
+Analyzing trades -------------------------------------------------------------------------------------------------------------------------------------------------------- 20/20 100% • 0:00:04 • 0:00:00
+                                                     Lookahead Analysis                                                     
++--------------------------------------------------------------------------------------------------------------------------+
+|       filename |    strategy | has_bias | total_signals | biased_entry_signals | biased_exit_signals | biased_indicators |
+|----------------+-------------+----------+---------------+----------------------+---------------------+-------------------|
+| ADXMomentum.py | ADXMomentum |       No |            20 |                    0 |                   0 |                   |
++--------------------------------------------------------------------------------------------------------------------------+
