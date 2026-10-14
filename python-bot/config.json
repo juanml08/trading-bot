@@ -1,11 +1,11 @@
 {
   "$comment": "SIMULACION UNICAMENTE. dry_run=true. Sin claves. No cambiar a false sin validacion previa (ver reglas.md).",
-  "max_open_trades": 3,
+  "max_open_trades": 1,
   "stake_currency": "USDT",
-  "stake_amount": 100,
+  "stake_amount": 30,
   "tradable_balance_ratio": 0.99,
   "dry_run": true,
-  "dry_run_wallet": 1000,
+  "dry_run_wallet": 100,
   "cancel_open_orders_on_exit": false,
   "trading_mode": "spot",
   "timeframe": "1h",
@@ -24,7 +24,7 @@
   },
   "pairlists": [{ "method": "StaticPairList" }],
   "bot_name": "freqtrade-dryrun-local",
-  "initial_state": "stopped",
+  "initial_state": "running",
   "force_entry_enable": false,
   "internals": { "process_throttle_secs": 5 }
 }
