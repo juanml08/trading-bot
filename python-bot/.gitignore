@@ -6,3 +6,6 @@ user_data/*.sqlite*
 config.local.json
 .env
 __pycache__/
+
+# DB de dry-run activa (cwd de freqtrade trade) y sus archivos WAL/SHM
+/tradesv3*.sqlite*
